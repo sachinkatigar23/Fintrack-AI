@@ -152,6 +152,18 @@ const run = async () => {
     { user, name: "Fun money", amount: 1500, category: "Entertainment", month, repeat: true },
   ]);
 
+  // Overall budget for the month: sized so the demo's Safe to spend is limited by the
+  // budget at roughly ₹1,100 a day (whatever day the seed runs), and never smaller than
+  // the category budgets added together (15,000), so there is no consistency warning.
+  const monthStart = startOfMonth(today);
+  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // whole days, like the budget (seeded times today can be later than now)
+  const spentMonth = expenses.filter((e) => e.date >= monthStart).reduce((s, e) => s + e.amount, 0);
+  const spentToday = expenses.filter((e) => e.date >= dayStart).reduce((s, e) => s + e.amount, 0);
+  const daysLeftInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
+  const overallAmount = Math.max(15000, Math.round((spentMonth - spentToday + (1100 + spentToday) * daysLeftInMonth) / 500) * 500);
+  await Budget.create({ user, name: "Monthly budget", amount: overallAmount, category: "Overall", month, repeat: true });
+
   // Savings goals
   await SavingsGoal.insertMany([
     {

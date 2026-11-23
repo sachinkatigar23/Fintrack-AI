@@ -181,7 +181,7 @@ All money figures are calculated on the server from your own records (`server/se
    - A recurring payment is not counted twice when a pending bill has the same name, an amount within 10% and a due date within 5 days.
    - Planned goal savings: for each active goal with a future date, (target − saved) ÷ months remaining, minus what you already put in since the start of this pay cycle (one month before payday).
 4. *Daily allowance* = (spendable + what you spent today) ÷ days left. *Safe to spend today* = daily allowance − what you spent today (never below 0). Adding today's spending back keeps the number steady during the day.
-5. If you have a budget this month: (budget remaining + budgeted spending today) ÷ days left in the month − budgeted spending today. When that is lower, it becomes today's number ("Limited by your monthly budget").
+5. If you have an **Overall** budget this month: (Overall budget remaining + everything spent today) ÷ days left in the month − everything spent today. When that is lower, it becomes today's number ("Limited by your monthly budget"). Category budgets never limit this number; they only add warnings in "Can I afford this?".
 6. Status: **Set up** (no income, no starting balance), **Short** (spendable below 0), **Tight** (daily allowance below 80% of your usual daily spend – last 30 days without rent, bills and automatic records, ÷ 30), otherwise **Comfortable**.
 
 **"Can I afford this?"** – the first rule that matches:

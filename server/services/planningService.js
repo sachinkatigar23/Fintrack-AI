@@ -149,12 +149,13 @@ export const computeSafeToSpend = (input) => {
   let leftToday = round2(Math.max(0, dailyAllowance - spentToday));
   let limitedBy = "money";
 
-  // 11. the monthly budget can be the tighter limit
+  // 11. an Overall budget can be the tighter limit. Category budgets never limit the
+  //     daily total (they only add warnings in "Can I afford this?").
   const budget = input.budget;
   let budgetLeftToday = null;
-  if (budget && budget.totalBudget > 0 && budget.remaining !== null && budget.remaining !== undefined) {
-    const tracked = (input.todayExpenses || []).filter((e) => budget.hasOverall || (budget.categories || []).includes(e.category));
-    const spentTodayTracked = sum(tracked);
+  if (budget && budget.hasOverall && budget.totalBudget > 0 && budget.remaining !== null && budget.remaining !== undefined) {
+    // with an Overall budget every expense counts
+    const spentTodayTracked = sum(input.todayExpenses || []);
     const daysLeftInMonth = daysInMonth(t0.getFullYear(), t0.getMonth()) - t0.getDate() + 1;
     const budgetDaily = Math.max(0, budget.remaining + spentTodayTracked) / daysLeftInMonth;
     budgetLeftToday = round2(Math.max(0, budgetDaily - spentTodayTracked));

@@ -111,19 +111,38 @@ test("budget-limited: the monthly budget is the tighter limit", () => {
   assert.equal(s.limitedBy, "budget");
 });
 
-test("budget only counts spending in budgeted categories", () => {
+test("category budgets alone never limit the daily total", () => {
   const s = computeSafeToSpend(
     base({
       totals: { totalIncome: 20000, totalExpenses: 10300, incomeCount: 1 },
-      budget: { totalBudget: 3000, remaining: 700, hasOverall: false, categories: ["Shopping"] },
+      // Shopping is already over its budget
+      budget: { totalBudget: 3000, remaining: -500, hasOverall: false, categories: ["Shopping"] },
       todayExpenses: [
         { amount: 100, category: "Shopping" },
         { amount: 200, category: "Transport" },
       ],
     })
   );
-  // tracked today = 100 -> (700 + 100) / 8 = 100 -> 100 - 100 = 0 left
+  // money limit only: (9700 + 300) / 8 = 1250 -> 1250 - 300 = 950
+  assert.equal(s.budgetLeftToday, null);
+  assert.equal(s.leftToday, 950);
+  assert.equal(s.limitedBy, "money");
+});
+
+test("an Overall budget counts every expense made today", () => {
+  const s = computeSafeToSpend(
+    base({
+      totals: { totalIncome: 20000, totalExpenses: 10300, incomeCount: 1 },
+      budget: { totalBudget: 5000, remaining: 500, hasOverall: true, categories: ["Overall", "Shopping"] },
+      todayExpenses: [
+        { amount: 100, category: "Shopping" },
+        { amount: 200, category: "Transport" },
+      ],
+    })
+  );
+  // (500 + 300) / 8 = 100 -> 100 - 300 -> 0 left
   assert.equal(s.budgetLeftToday, 0);
+  assert.equal(s.leftToday, 0);
   assert.equal(s.limitedBy, "budget");
 });
 
