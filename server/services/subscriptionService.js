@@ -222,8 +222,8 @@ const isoDay = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 };
 
-export const sendSubscriptionAlerts = async (today = new Date()) => {
-  const users = await Expense.distinct("user", { date: { $gte: addDays(startOfDay(today), -60) } });
+export const sendSubscriptionAlerts = async (today = new Date(), userIds = null) => {
+  const users = userIds || (await Expense.distinct("user", { date: { $gte: addDays(startOfDay(today), -60) } }));
   let sent = 0;
   for (const userId of users) {
     try {

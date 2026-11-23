@@ -23,7 +23,8 @@ export const afford = async (req, res) => {
     // The AI only adds one sentence of advice; the verdict and numbers never change
     const ai = await explainOrFallback(
       `The user asks whether they can afford "${title}". The verdict is already decided: "${result.verdict}" ("${result.headline}").
-Do not change the verdict or any number. Give ONE short, practical sentence of advice (max 25 words).
+The user already sees that headline, so do NOT repeat it and do NOT write any amounts, percentages or dates.
+Give ONE short, practical piece of advice (max 25 words) that fits the verdict, e.g. how to plan, wait or save for it.
 Return JSON: {"tip": "one sentence"}`,
       {
         currency,
@@ -39,11 +40,13 @@ Return JSON: {"tip": "one sentence"}`,
       },
       { tip: fallbackTip(result.verdict) }
     );
-    const tip = typeof ai.tip === "string" && ai.tip.trim() ? ai.tip.trim().slice(0, 240) : fallbackTip(result.verdict);
+    // A tip with figures could contradict the calculated numbers: use the rule-based one instead
+    const aiTip = typeof ai.tip === "string" ? ai.tip.trim() : "";
+    const tip = aiTip && !/\d/.test(aiTip) ? aiTip.slice(0, 240) : fallbackTip(result.verdict);
 
     return res.json({
       success: true,
-      data: { title, ...result, tip, aiGenerated: Boolean(ai.aiGenerated), aiNote: ai.aiNote },
+      data: { title, ...result, tip, aiGenerated: Boolean(ai.aiGenerated) && tip === aiTip.slice(0, 240), aiNote: ai.aiNote },
     });
   } catch (error) {
     console.error("Afford check error:", error);

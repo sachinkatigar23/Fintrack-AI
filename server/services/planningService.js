@@ -390,9 +390,9 @@ export const getMonthlyNet = async (userId) => {
 export const activeUserIds = async (days = 60) => Expense.distinct("user", { date: { $gte: addDays(startOfDay(), -days) } });
 
 // Daily 09:00 job: warn users who may run short before payday (once per day)
-export const sendShortfallAlerts = async (today = new Date()) => {
+export const sendShortfallAlerts = async (today = new Date(), userIds = null) => {
   let sent = 0;
-  for (const userId of await activeUserIds()) {
+  for (const userId of userIds || (await activeUserIds())) {
     try {
       const sts = await getSafeToSpend(userId, today);
       if (sts.status !== "short") continue;
