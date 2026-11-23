@@ -1,0 +1,115 @@
+import { body, param } from "express-validator";
+import {
+  EXPENSE_CATEGORIES,
+  INCOME_SOURCES,
+  PAYMENT_METHODS,
+  RECURRING_FREQUENCIES,
+} from "../utils/constants.js";
+
+// Remove angle brackets so no HTML/script can be stored (React also escapes output)
+const clean = (value) => (typeof value === "string" ? value.replace(/[<>]/g, "").trim() : value);
+
+const amount = (field = "amount", optional = false) => {
+  const chain = body(field);
+  return (optional ? chain.optional() : chain)
+    .isFloat({ gt: 0, max: 100000000 })
+    .withMessage("Amount must be a number greater than 0")
+    .toFloat();
+};
+
+const date = (field, optional = true, label = "Date") => {
+  const chain = body(field);
+  return (optional ? chain.optional({ values: "falsy" }) : chain.notEmpty().withMessage(`${label} is required`))
+    .isISO8601()
+    .withMessage(`${label} must be a valid date`);
+};
+
+export const idParam = [param("id").isMongoId().withMessage("Invalid record id")];
+
+// ───────── Expenses ─────────
+export const createExpenseValidator = [
+  body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 100 }).withMessage("Title is too long").customSanitizer(clean),
+  amount(),
+  body("category").isIn(EXPENSE_CATEGORIES).withMessage("Please choose a valid category"),
+  body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
+  date("date"),
+  body("notes").optional().trim().isLength({ max: 500 }).withMessage("Notes are too long").customSanitizer(clean),
+];
+
+export const updateExpenseValidator = [
+  ...idParam,
+  body("title").optional().trim().notEmpty().withMessage("Title cannot be empty").isLength({ max: 100 }).customSanitizer(clean),
+  amount("amount", true),
+  body("category").optional().isIn(EXPENSE_CATEGORIES).withMessage("Please choose a valid category"),
+  body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
+  date("date"),
+  body("notes").optional().trim().isLength({ max: 500 }).customSanitizer(clean),
+];
+
+// ───────── Income ─────────
+export const createIncomeValidator = [
+  body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 100 }).customSanitizer(clean),
+  amount(),
+  body("source").isIn(INCOME_SOURCES).withMessage("Please choose a valid source"),
+  body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
+  date("date"),
+  body("notes").optional().trim().isLength({ max: 500 }).customSanitizer(clean),
+];
+
+export const updateIncomeValidator = [
+  ...idParam,
+  body("title").optional().trim().notEmpty().withMessage("Title cannot be empty").isLength({ max: 100 }).customSanitizer(clean),
+  amount("amount", true),
+  body("source").optional().isIn(INCOME_SOURCES).withMessage("Please choose a valid source"),
+  body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
+  date("date"),
+  body("notes").optional().trim().isLength({ max: 500 }).customSanitizer(clean),
+];
+
+// ───────── Budgets ─────────
+export const budgetValidator = (optional = false) => [
+  (optional ? body("name").optional() : body("name")).trim().notEmpty().withMessage("Budget name is required").isLength({ max: 80 }).customSanitizer(clean),
+  amount("amount", optional),
+  body("category").optional().isIn(["Overall", ...EXPENSE_CATEGORIES]).withMessage("Please choose a valid category"),
+  body("month").optional({ values: "falsy" }).matches(/^\d{4}-(0[1-9]|1[0-2])$/).withMessage("Month must look like 2026-10"),
+];
+
+// ───────── Savings goals ─────────
+export const goalValidator = (optional = false) => [
+  (optional ? body("name").optional() : body("name")).trim().notEmpty().withMessage("Goal name is required").isLength({ max: 80 }).customSanitizer(clean),
+  amount("targetAmount", optional),
+  body("savedAmount").optional({ values: "falsy" }).isFloat({ min: 0 }).withMessage("Saved amount cannot be negative").toFloat(),
+  date("targetDate", true, "Target date"),
+];
+
+export const contributionValidator = [
+  ...idParam,
+  amount("amount"),
+  body("note").optional().trim().isLength({ max: 120 }).customSanitizer(clean),
+];
+
+// ───────── Bills ─────────
+export const billValidator = (optional = false) => [
+  (optional ? body("name").optional() : body("name")).trim().notEmpty().withMessage("Bill name is required").isLength({ max: 80 }).customSanitizer(clean),
+  amount("amount", optional),
+  date("dueDate", optional, "Due date"),
+  body("reminderDays").optional({ values: "falsy" }).isInt({ min: 0, max: 30 }).withMessage("Reminder must be 0-30 days").toInt(),
+  body("status").optional().isIn(["pending", "paid"]).withMessage("Invalid status"),
+];
+
+// ───────── Recurring ─────────
+export const recurringValidator = (optional = false) => [
+  (optional ? body("title").optional() : body("title")).trim().notEmpty().withMessage("Title is required").isLength({ max: 100 }).customSanitizer(clean),
+  amount("amount", optional),
+  (optional ? body("type").optional() : body("type")).isIn(["income", "expense"]).withMessage("Type must be income or expense"),
+  (optional ? body("classification").optional() : body("classification"))
+    .custom((value, { req }) => {
+      const list = req.body.type === "income" ? INCOME_SOURCES : EXPENSE_CATEGORIES;
+      if (!req.body.type && optional) return true;
+      if (!list.includes(value)) throw new Error("Please choose a valid category or source");
+      return true;
+    }),
+  body("frequency").optional().isIn(RECURRING_FREQUENCIES).withMessage("Invalid frequency"),
+  date("nextDate", optional, "Next date"),
+  body("active").optional().isBoolean().toBoolean(),
+];

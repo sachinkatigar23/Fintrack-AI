@@ -1,0 +1,68 @@
+// One place for all icons used in FinTrack AI.
+// Icons are looked up by name with fallbacks, so a renamed icon in a newer
+// lucide-react version can never crash a page.
+import * as Lucide from "lucide-react";
+
+const pick = (...names) => {
+  for (const n of names) if (Lucide[n]) return Lucide[n];
+  return Lucide.Circle;
+};
+
+export const Activity = pick("Activity");
+export const AlertTriangle = pick("TriangleAlert", "AlertTriangle");
+export const AlignLeft = pick("TextAlignStart", "AlignLeft");
+export const ArrowDownRight = pick("ArrowDownRight");
+export const ArrowUpRight = pick("ArrowUpRight");
+export const Ban = pick("Ban");
+export const Bell = pick("Bell");
+export const Briefcase = pick("Briefcase");
+export const Building2 = pick("Building2", "Building");
+export const Camera = pick("Camera");
+export const Car = pick("Car");
+export const Check = pick("Check");
+export const CircleEllipsis = pick("CircleEllipsis", "Ellipsis", "MoreHorizontal");
+export const Clock = pick("Clock");
+export const CreditCard = pick("CreditCard");
+export const DollarSign = pick("DollarSign", "CircleDollarSign");
+export const Download = pick("Download");
+export const Eye = pick("Eye");
+export const EyeOff = pick("EyeOff");
+export const FileText = pick("FileText");
+export const Gift = pick("Gift");
+export const GraduationCap = pick("GraduationCap");
+export const HeartPulse = pick("HeartPulse", "Heart");
+export const Info = pick("Info", "CircleAlert");
+export const Laptop = pick("Laptop", "LaptopMinimal");
+export const LayoutGrid = pick("LayoutGrid", "Grid2x2", "Grid");
+export const Lightbulb = pick("Lightbulb");
+export const LineChart = pick("ChartLine", "LineChart");
+export const LogOut = pick("LogOut");
+export const MessageSquare = pick("MessageSquare");
+export const Moon = pick("Moon");
+export const Paperclip = pick("Paperclip");
+export const Pause = pick("Pause");
+export const Pencil = pick("Pencil", "Edit2");
+export const Plane = pick("Plane");
+export const Play = pick("Play");
+export const Plus = pick("Plus");
+export const Printer = pick("Printer");
+export const Receipt = pick("Receipt");
+export const RefreshCw = pick("RefreshCw", "RotateCw");
+export const RotateCcw = pick("RotateCcw", "Undo2");
+export const Search = pick("Search");
+export const Send = pick("Send");
+export const Shield = pick("Shield");
+export const ShoppingBag = pick("ShoppingBag");
+export const Sparkles = pick("Sparkles");
+export const Sun = pick("Sun");
+export const Target = pick("Target");
+export const Ticket = pick("Ticket", "Film");
+export const Trash2 = pick("Trash2", "Trash");
+export const TrendingUp = pick("TrendingUp");
+export const User = pick("User");
+export const UserCheck = pick("UserCheck", "User");
+export const Users = pick("Users");
+export const Utensils = pick("Utensils", "UtensilsCrossed");
+export const Wallet = pick("Wallet");
+export const X = pick("X");
+export const Zap = pick("Zap");
