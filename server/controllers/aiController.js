@@ -14,6 +14,12 @@ import * as analytics from "../services/analyticsService.js";
 import { explainOrFallback, cached, isAIEnabled } from "../services/aiService.js";
 import { startOfMonth, endOfMonth, addMonths, monthKey, monthRange } from "../utils/dates.js";
 import { EXPENSE_CATEGORIES, INCOME_SOURCES } from "../utils/constants.js";
+import { getSafeToSpend } from "../services/planningService.js";
+
+const isoDay = (d) => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+};
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
@@ -59,6 +65,9 @@ const buildContext = async (userId) => {
     analytics.getMoneySettings(userId),
     analytics.getAvailableBalance(userId),
   ]);
+
+  // Safe to spend summary (never blocks the coach if it fails)
+  const sts = await getSafeToSpend(userId).catch(() => null);
 
   const savings = round2(thisIncome.total - thisExpenses.total);
   const lastByCat = Object.fromEntries(lastCats.map((c) => [c.name, c.amount]));
@@ -109,6 +118,23 @@ const buildContext = async (userId) => {
     })),
     upcomingBills: bills.map((b) => ({ name: b.name, amount: b.amount, dueDate: b.dueDate.toISOString().slice(0, 10) })),
     threeMonthAverages: averages,
+    safeToSpend: sts
+      ? {
+          status: sts.status,
+          leftToday: sts.leftToday,
+          dailyAllowance: sts.dailyAllowance,
+          spendableUntilPayday: sts.spendable,
+          payday: isoDay(sts.payday),
+          daysLeft: sts.daysLeft,
+          reservedInGoals: sts.goalReserve,
+          billsBeforePayday: sts.billsDueTotal,
+          recurringBeforePayday: sts.recurringDueTotal,
+          plannedGoalSavings: sts.goalContributionsDue,
+          safetyBuffer: sts.buffer,
+          limitedBy: sts.limitedBy,
+          shortBy: sts.shortBy,
+        }
+      : null,
   };
 };
 
@@ -117,6 +143,31 @@ const ruleBasedAnswer = (q, ctx) => {
   const text = (q || "").toLowerCase();
   const t = ctx.thisMonth;
   const top = t.categories[0];
+
+  // "How much can I spend / afford?" -> Safe to spend
+  const s = ctx.safeToSpend;
+  if (s && /(how much (can|could|should|may) i (spend|afford)|can i (spend|afford|buy)|afford|safe to spend|kitna.*kharch.*(sakta|sakti|sake))/.test(text)) {
+    const statusLine =
+      s.status === "short"
+        ? `Careful: you may run short by ${inr(s.shortBy)} before payday.`
+        : s.status === "setup"
+          ? "Add your income or a starting balance in Profile → Money settings to get an accurate number."
+          : s.status === "tight"
+            ? "Money is tight until payday, so keep today's spending light."
+            : "You're comfortable until payday.";
+    return {
+      type: "financial_health",
+      title: "Safe to spend",
+      summary: `You can safely spend ${inr(s.leftToday)} today. Until payday on ${s.payday} (${s.daysLeft} day${s.daysLeft === 1 ? "" : "s"} left) you have ${inr(Math.max(0, s.spendableUntilPayday))} spendable. ${statusLine}`,
+      metrics: [
+        `Safe today: ${inr(s.leftToday)}`,
+        `Spendable until payday: ${inr(s.spendableUntilPayday)}`,
+        `Bills before payday: ${inr(s.billsBeforePayday)}`,
+        `Reserved in goals: ${inr(s.reservedInGoals)}`,
+      ],
+      recommendation: "Use \"Can I afford this?\" on the Safe to spend page before a bigger purchase.",
+    };
+  }
 
   if (/(compare|last month|changed|change|increase|decrease|vs)/.test(text)) {
     const diff = ctx.changeVsLastMonth.expenses;

@@ -84,3 +84,8 @@ export const collectionApi = (endpoint) => ({
   remove: (id) => api.delete(`${endpoint}/${id}`).then(data),
   action: (id, action, body = {}) => api.post(`${endpoint}/${id}/${action}`, body).then(data),
 });
+
+export const planningApi = {
+  safeToSpend: () => api.get("/planning/safe-to-spend").then(data),
+  afford: (body) => api.post("/planning/afford", body).then(data),
+};

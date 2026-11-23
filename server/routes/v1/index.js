@@ -13,6 +13,7 @@ import analyticsRoutes from "./analytics.routes.js";
 import aiRoutes from "./ai.routes.js";
 import profileRoutes from "./profile.routes.js";
 import adminRoutes from "./admin.routes.js";
+import planningRoutes from "./planning.routes.js";
 
 const router = express.Router();
 
@@ -30,5 +31,6 @@ router.use("/analytics", analyticsRoutes);
 router.use("/ai", aiRoutes);
 router.use("/profile", profileRoutes);
 router.use("/admin", adminRoutes);
+router.use("/planning", planningRoutes);
 
 export default router;

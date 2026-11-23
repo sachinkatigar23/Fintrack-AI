@@ -694,3 +694,27 @@ tbody tr:hover{background:rgba(124,107,255,.055);box-shadow:inset 3px 0 0 var(--
   .hist-row{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
   .hist-row:last-child{border-bottom:0}
 }
+@layer components {
+  /* Safe to spend */
+  .sts-hero{padding:var(--s6) var(--s6);background:linear-gradient(135deg,rgba(47,214,166,.10),rgba(124,107,255,.06) 60%,transparent)}
+  .sts-title{font-family:"Fraunces",Georgia,serif;font-size:30px;font-weight:400;line-height:1.2;margin-top:8px;color:var(--text)}
+  .sts-title b{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:.9em}
+  .sts-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--iris-soft);color:#A99BFF;flex:none}
+  .sts-ic svg{width:20px;height:20px}
+  .sts-side{display:flex;flex-direction:column;gap:14px;padding-left:var(--s5);border-left:1px solid var(--line)}
+  .sts-lines{display:flex;flex-direction:column}
+  .sts-line{display:grid;grid-template-columns:18px 1fr auto;align-items:center;gap:8px;padding:8px 0;font-size:13px;border-bottom:1px dashed var(--line)}
+  .sts-line .sgn{font-family:"JetBrains Mono",monospace;color:var(--text-3);text-align:center}
+  .sts-line .lb{color:var(--text-2)}
+  .sts-line.total{border-bottom:1px solid var(--line);font-weight:600}
+  .sts-line.total .lb{color:var(--text)}
+  .sts-timeline{display:flex;flex-direction:column}
+  .sts-tl{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .sts-tl:last-child{border-bottom:0}
+  .sts-tl-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line);flex:none}
+  .sts-tl-ic svg{width:14px;height:14px}
+  .sts-mini{padding:var(--s5)}
+  .sts-mini .amt{font-family:"JetBrains Mono",monospace;font-size:28px;font-weight:500;margin:10px 0 4px}
+  html.light .sts-tl-ic{background:#F7F9FC}
+  @media (max-width:860px){.sts-side{padding-left:0;border-left:0}.sts-title{font-size:26px}.sts-hero{padding:var(--s5)}}
+}

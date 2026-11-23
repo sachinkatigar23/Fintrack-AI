@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CreditCard, ArrowUpRight, ArrowDownRight, Clock, Plus, Sparkles, FileText } from "../components/common/icons.js";
+import { CreditCard, ArrowUpRight, ArrowDownRight, Clock, Plus, Sparkles, FileText, HelpCircle } from "../components/common/icons.js";
 import toast from "react-hot-toast";
 import PageHeader from "../components/common/PageHeader.jsx";
 import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
@@ -10,7 +10,9 @@ import Ring from "../components/common/Ring.jsx";
 import Skeleton from "../components/common/Skeleton.jsx";
 import TransactionForm from "../components/transactions/TransactionForm.jsx";
 import TxnRow from "../components/transactions/TxnRow.jsx";
-import { dashboardApi, aiApi } from "../services/financeApi.js";
+import AffordModal from "../components/planning/AffordModal.jsx";
+import { stsStatusTag } from "../components/planning/stsStatus.js";
+import { dashboardApi, aiApi, planningApi } from "../services/financeApi.js";
 import { useAuth } from "../hooks/useAuth.js";
 import { useMoney } from "../hooks/useMoney.js";
 import { greeting, monthKey, daysUntil, fmtShortDate } from "../utils/format.js";
@@ -94,6 +96,19 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [brief, setBrief] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [sts, setSts] = useState(null);
+  const [affordOpen, setAffordOpen] = useState(false);
+
+  // Safe to spend card (refreshes whenever data changes anywhere in the app)
+  const loadSts = useCallback(() => {
+    planningApi.safeToSpend().then(setSts).catch(() => setSts(null));
+  }, []);
+
+  useEffect(() => {
+    loadSts();
+    window.addEventListener("fintrack:data-changed", loadSts);
+    return () => window.removeEventListener("fintrack:data-changed", loadSts);
+  }, [loadSts]);
 
   const load = useCallback(() => {
     dashboardApi
@@ -276,6 +291,37 @@ export default function Dashboard() {
         </div>
 
         <div className="stack">
+          <div className="card sts-mini">
+            <div className="flex items-center gap-2">
+              <span className="lbl" style={{ fontSize: 12.5, color: "var(--text-2)", fontWeight: 600 }}>Safe to spend today</span>
+              <div style={{ flex: 1 }} />
+              {sts && <span className={`tag ${stsStatusTag(sts, money)[1]}`}>{stsStatusTag(sts, money)[0]}</span>}
+            </div>
+            {!sts ? (
+              <Skeleton style={{ height: 34, width: 140, margin: "12px 0" }} />
+            ) : sts.status === "setup" ? (
+              <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 12px", lineHeight: 1.5 }}>
+                Add income or your starting balance to see what you can safely spend.
+              </p>
+            ) : (
+              <>
+                <div className={`amt ${sts.leftToday > 0 ? "mint" : "coral"}`}>{money.fmt0(sts.leftToday)}</div>
+                <p className="faint" style={{ fontSize: 11.5 }}>
+                  {sts.daysLeft} day{sts.daysLeft === 1 ? "" : "s"} to payday ({fmtShortDate(sts.payday)})
+                  {sts.limitedBy === "budget" ? " · limited by budget" : ""}
+                </p>
+              </>
+            )}
+            <div className="flex gap-2" style={{ marginTop: 12 }}>
+              <button type="button" className="btn primary sm" onClick={() => setAffordOpen(true)}>
+                <HelpCircle /> Can I afford this?
+              </button>
+              <Link to="/safe-to-spend" className="btn ghost sm">
+                Details
+              </Link>
+            </div>
+          </div>
+
           <div className="card">
             <div className="card-hd">
               <h3>Financial health</h3>
@@ -400,6 +446,7 @@ export default function Dashboard() {
       </div>
 
       <TransactionForm open={formOpen} onClose={() => setFormOpen(false)} type="expense" onSaved={load} />
+      <AffordModal open={affordOpen} onClose={() => setAffordOpen(false)} onChanged={load} />
     </>
   );
 }

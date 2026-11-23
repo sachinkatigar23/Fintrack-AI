@@ -15,6 +15,7 @@ import Budgets from "./pages/Budgets.jsx";
 import SavingsGoals from "./pages/SavingsGoals.jsx";
 import Bills from "./pages/Bills.jsx";
 import Recurring from "./pages/Recurring.jsx";
+import SafeToSpend from "./pages/SafeToSpend.jsx";
 import Reports from "./pages/Reports.jsx";
 import Insights from "./pages/Insights.jsx";
 import Profile from "./pages/Profile.jsx";
@@ -40,6 +41,7 @@ function App() {
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/income" element={<Income />} />
+          <Route path="/safe-to-spend" element={<SafeToSpend />} />
           <Route path="/budgets" element={<Budgets />} />
           <Route path="/savings-goals" element={<SavingsGoals />} />
           <Route path="/bills" element={<Bills />} />

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutGrid, FileText, ArrowDownRight, ArrowUpRight, Clock, CreditCard, Bell, AlignLeft, Sun, LogOut, Shield } from "../common/icons.js";
+import { LayoutGrid, FileText, ArrowDownRight, ArrowUpRight, Clock, CreditCard, Bell, AlignLeft, Sun, LogOut, Shield, Gauge, Repeat } from "../common/icons.js";
 import { useAuth } from "../../hooks/useAuth.js";
 
 const SECTIONS = [
@@ -15,6 +15,7 @@ const SECTIONS = [
   {
     title: "PLANNING",
     links: [
+      ["/safe-to-spend", "Safe to spend", Gauge],
       ["/budgets", "Budgets", Clock],
       ["/savings-goals", "Savings goals", CreditCard],
       ["/bills", "Bills", Bell],
