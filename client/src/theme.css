@@ -718,3 +718,29 @@ tbody tr:hover{background:rgba(124,107,255,.055);box-shadow:inset 3px 0 0 var(--
   html.light .sts-tl-ic{background:#F7F9FC}
   @media (max-width:860px){.sts-side{padding-left:0;border-left:0}.sts-title{font-size:26px}.sts-hero{padding:var(--s5)}}
 }
+@layer components {
+  /* Quick add (text + voice) */
+  .qa{border:1px dashed rgba(124,107,255,.35);border-radius:12px;padding:10px 12px;margin-bottom:var(--s3);
+    background:linear-gradient(135deg,rgba(124,107,255,.08),rgba(124,107,255,.02));transition:var(--dur) var(--ease)}
+  .qa.on{border-style:solid;border-color:rgba(255,107,122,.5);box-shadow:0 0 0 4px rgba(255,107,122,.08)}
+  .qa-row{display:flex;align-items:center;gap:10px}
+  .qa-ic{color:#A99BFF;display:grid;place-items:center;flex:none}
+  .qa-ic svg{width:15px;height:15px}
+  .qa-input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font:inherit;font-size:13.5px;padding:6px 0}
+  .qa-input::placeholder{color:var(--text-3)}
+  .qa-lang{display:inline-flex;border:1px solid var(--line);border-radius:var(--r-pill);overflow:hidden;flex:none}
+  .qa-lang button{background:none;border:0;color:var(--text-2);font-size:11px;padding:4px 9px;cursor:pointer}
+  .qa-lang button.on{background:var(--iris-soft);color:#A99BFF;font-weight:600}
+  .qa-mic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;cursor:pointer;
+    border:1px solid rgba(124,107,255,.4);background:var(--iris-soft);color:#A99BFF;transition:var(--dur) var(--ease)}
+  .qa-mic svg{width:16px;height:16px}
+  .qa-mic:hover{transform:scale(1.06)}
+  .qa-mic.listening{background:var(--coral);border-color:var(--coral);color:#fff;animation:micpulse 1.3s ease-out infinite}
+  @keyframes micpulse{0%{box-shadow:0 0 0 0 rgba(255,107,122,.55)}100%{box-shadow:0 0 0 14px rgba(255,107,122,0)}}
+  .qa-hint{font-size:11px;color:var(--text-3);margin-top:4px;padding-left:25px}
+  .qa-queue{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-4px 0 var(--s3)}
+  .qa-queue .chipf{cursor:default;font-size:11.5px;padding:4px 10px}
+  html.light .qa{background:linear-gradient(135deg,rgba(124,107,255,.07),#fff)}
+  html.light .qa-lang button.on,html.light .qa-mic{color:#5B47E0}
+  html.light .qa-mic.listening{color:#fff}
+}

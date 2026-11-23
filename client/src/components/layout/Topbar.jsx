@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Sun, Moon, User, Shield, LogOut } from "../common/icons.js";
+import { Search, Sun, Moon, User, Shield, LogOut, Mic } from "../common/icons.js";
 import Logo from "../common/Logo.jsx";
 import NotificationBell from "./NotificationBell.jsx";
+import TransactionForm from "../transactions/TransactionForm.jsx";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useTheme } from "../../hooks/useTheme.js";
 import { fileUrl } from "../../api/axios.js";
@@ -13,6 +14,7 @@ export default function Topbar() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [menu, setMenu] = useState(false);
+  const [quickAdd, setQuickAdd] = useState(false);
   const inputRef = useRef(null);
   const menuRef = useRef(null);
 
@@ -67,6 +69,10 @@ export default function Topbar() {
 
       <div className="topbar-sp" />
 
+      <button type="button" className="iconbtn" onClick={() => setQuickAdd(true)} aria-label="Quick add" title="Quick add (voice)">
+        <Mic />
+      </button>
+
       <button type="button" className="iconbtn" onClick={toggleTheme} aria-label="Toggle theme" title="Switch theme">
         {theme === "dark" ? <Sun /> : <Moon />}
       </button>
@@ -104,6 +110,7 @@ export default function Topbar() {
           </div>
         )}
       </div>
+      <TransactionForm open={quickAdd} onClose={() => setQuickAdd(false)} type="expense" autoVoice />
     </header>
   );
 }

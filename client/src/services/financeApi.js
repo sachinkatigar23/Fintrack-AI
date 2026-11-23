@@ -50,6 +50,7 @@ export const aiApi = {
   recap: (params) => api.get("/ai/recap", { params }).then(data),
   chat: (message, history) => api.post("/ai/chat", { message, history }).then(data),
   simulate: (body) => api.post("/ai/simulate", body).then(data),
+  parseTransaction: (text) => api.post("/ai/parse-transaction", { text }).then(data),
 };
 
 export const notificationApi = {

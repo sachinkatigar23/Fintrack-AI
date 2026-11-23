@@ -5,6 +5,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { Paperclip, Check } from "../common/icons.js";
 import Modal from "../common/Modal.jsx";
+import QuickAddBar from "./QuickAddBar.jsx";
 import { expenseApi, incomeApi } from "../../services/financeApi.js";
 import { EXPENSE_CATEGORIES, INCOME_SOURCES, PAYMENT_METHODS } from "../../utils/categories.js";
 import { toInputDate } from "../../utils/format.js";
@@ -36,15 +37,19 @@ const blank = (type) => ({
 
 /**
  * Add / edit an expense or income.
- * props: open, onClose, type ("expense"|"income"), lockType, record (when editing), onSaved(record, type)
+ * props: open, onClose, type ("expense"|"income"), lockType, record (when editing; without _id it pre-fills a new one),
+ *        onSaved(record, type), autoVoice (start Quick add listening when opened)
  */
-export default function TransactionForm({ open, onClose, type: initialType = "expense", lockType = false, record, onSaved }) {
+export default function TransactionForm({ open, onClose, type: initialType = "expense", lockType = false, record, onSaved, autoVoice = false }) {
   const [type, setType] = useState(initialType);
   const [receiptUrl, setReceiptUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const [hint, setHint] = useState(0);
   const fileRef = useRef(null);
   const editing = Boolean(record?._id);
+  // Quick add: items still waiting after the first one ("+N more"), and an item waiting for a type switch
+  const [queue, setQueue] = useState([]);
+  const pendingRef = useRef(null);
 
   const {
     register,
@@ -59,6 +64,8 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
     if (!open) return;
     const t = record?.type || initialType;
     setType(t);
+    setQueue([]);
+    pendingRef.current = null;
     setReceiptUrl(record?.receiptUrl || "");
     reset(
       record
@@ -87,6 +94,77 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
     setValue("classification", t === "income" ? "Salary" : "Food & Dining");
     setValue("paymentMethod", t === "income" ? "bankTransfer" : "upi");
   };
+
+  // ───────── Quick add ─────────
+  const fillFields = (item) => {
+    const opts = { shouldValidate: true, shouldDirty: true };
+    const filled = [];
+    const income = item.type === "income";
+    if (item.title) {
+      setValue("title", String(item.title).slice(0, 100), opts);
+      if (!item.missing?.includes("title")) filled.push("title");
+    }
+    if (Number(item.amount) > 0) {
+      setValue("amount", String(item.amount), opts);
+      filled.push(`amount ${item.amount}`);
+    }
+    const cls = income ? item.source : item.category;
+    if (cls && (income ? INCOME_SOURCES : EXPENSE_CATEGORIES).includes(cls)) {
+      setValue("classification", cls, opts);
+      filled.push(cls);
+    }
+    if (PAYMENT_METHODS.some(([v]) => v === item.paymentMethod)) setValue("paymentMethod", item.paymentMethod, opts);
+    // A future date is ignored: today stays
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(item.date || "")) && item.date <= toInputDate()) {
+      setValue("date", item.date, opts);
+      if (item.date !== toInputDate()) filled.push(item.date);
+    }
+    toast.success(`Filled: ${filled.join(", ") || "what we could"}${item.missing?.length ? " – please check the rest" : ""}`);
+  };
+
+  // After a type switch the category list changes; fill once the new options are rendered
+  useEffect(() => {
+    if (!open || !pendingRef.current) return;
+    const item = pendingRef.current;
+    pendingRef.current = null;
+    fillFields(item);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, open]);
+
+  const applyItem = (item) => {
+    const t = item.type === "income" ? "income" : "expense";
+    if (t !== type) {
+      pendingRef.current = item;
+      setType(t);
+      setValue("classification", t === "income" ? "Salary" : "Food & Dining");
+      setValue("paymentMethod", t === "income" ? "bankTransfer" : "upi");
+      return;
+    }
+    fillFields(item);
+  };
+
+  const onQuickItems = (items) => {
+    let list = items.filter((i) => i && (i.amount || i.title));
+    if (!list.length) return toast("Couldn't find an amount – try “250 petrol”", { icon: "🤔" });
+    if (lockType) {
+      const other = list.filter((i) => i.type !== type);
+      list = list.filter((i) => i.type === type);
+      if (other.length) {
+        toast(
+          type === "expense"
+            ? "This sounds like income – add it from the Income page"
+            : "This sounds like an expense – add it from the Expenses page",
+          { icon: "ℹ️" }
+        );
+      }
+      if (!list.length) return;
+    }
+    const [first, ...rest] = list;
+    applyItem(first);
+    setQueue(rest);
+  };
+
+  const itemLabel = (i) => `${i.amount ? `₹${Number(i.amount).toLocaleString("en-IN")} ` : ""}${i.title}`;
 
   // Scan Receipt with AI: auto-fill title, amount, category (and date)
   const onScan = async (e) => {
@@ -151,6 +229,22 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
       toast.success(`${type === "income" ? "Income" : "Expense"} ${editing ? "updated" : "added"}`);
       window.dispatchEvent(new Event("fintrack:data-changed"));
       onSaved?.(saved, type);
+
+      // Quick add with several items: load the next one into a fresh form
+      if (!editing && queue.length) {
+        const [next, ...rest] = queue;
+        const t = lockType ? type : next.type === "income" ? "income" : "expense";
+        setReceiptUrl("");
+        reset(blank(t));
+        setQueue(rest);
+        if (t !== type) {
+          pendingRef.current = next;
+          setType(t);
+        } else {
+          setTimeout(() => fillFields(next), 0);
+        }
+        return;
+      }
       onClose();
     } catch (err) {
       toast.error(errorMessage(err, "Could not save"));
@@ -172,8 +266,28 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
         </div>
       )}
 
+      {!editing && (
+        <>
+          {/* no type chips when locked: leave room for the close button */}
+          <div style={lockType ? { marginTop: 22 } : undefined}>
+            <QuickAddBar autoVoice={autoVoice} onItems={onQuickItems} />
+          </div>
+          {queue.length > 0 && (
+            <div className="qa-queue">
+              <span className="tag iris">+{queue.length} MORE</span>
+              {queue.map((i, n) => (
+                <span key={n} className="chipf" title="Loads after you save this one">
+                  {itemLabel(i)}
+                </span>
+              ))}
+              <span className="faint" style={{ fontSize: 11 }}>next after saving</span>
+            </div>
+          )}
+        </>
+      )}
+
       {type === "expense" && (
-        <div className="scanbox" style={!lockType && !editing ? undefined : { marginTop: editing ? 0 : 22 }}>
+        <div className="scanbox">
           <span className="sic">
             <Paperclip />
           </span>

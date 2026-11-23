@@ -11,9 +11,10 @@
 import Expense from "../models/Expense.js";
 import mongoose from "mongoose";
 import * as analytics from "../services/analyticsService.js";
-import { explainOrFallback, cached, isAIEnabled } from "../services/aiService.js";
+import { explainOrFallback, cached, isAIEnabled, generateJSON } from "../services/aiService.js";
+import { parseQuickAdd, mergeAIItems, hasDevanagariLetters } from "../services/quickAddParser.js";
 import { startOfMonth, endOfMonth, addMonths, monthKey, monthRange } from "../utils/dates.js";
-import { EXPENSE_CATEGORIES, INCOME_SOURCES } from "../utils/constants.js";
+import { EXPENSE_CATEGORIES, INCOME_SOURCES, PAYMENT_METHODS } from "../utils/constants.js";
 import { getSafeToSpend } from "../services/planningService.js";
 import { getSubscriptions } from "../services/subscriptionService.js";
 
@@ -539,4 +540,59 @@ Mention spending, the top category and savings outlook. Return JSON: {"lines": [
 // GET /ai/status - lets the UI show whether AI is configured
 export const getAIStatus = (req, res) => {
   res.json({ success: true, data: { enabled: isAIEnabled(), model: process.env.GEMINI_MODEL || "gemini-3.6-flash" } });
+};
+
+// ───────── POST /ai/parse-transaction  { text } ─────────
+// Quick add / voice: rules first; the AI only fills fields the rules missed. Nothing is saved.
+export const parseTransaction = async (req, res) => {
+  try {
+    const text = String(req.body.text || "").trim().slice(0, 300);
+    const today = new Date();
+    const parsed = parseQuickAdd(text, today);
+    if (!parsed.items.length) {
+      return res.status(400).json({ success: false, message: "Say or type something like \"250 petrol kal upi\"" });
+    }
+
+    const needsAI = parsed.items.some((i) => i.confidence !== "high") || hasDevanagariLetters(text);
+    let items = parsed.items;
+    let source = "rules";
+
+    if (needsAI && isAIEnabled()) {
+      try {
+        const ai = await generateJSON(
+          `Read this short note (English, Hindi or Hinglish; it may contain several entries) about money the user ALREADY spent or received:
+"${text}"
+Split it into the same ${parsed.items.length} entr${parsed.items.length === 1 ? "y" : "ies"} as these segments, in this order: ${JSON.stringify(parsed.items.map((i) => i.text))}
+For each entry return:
+- "type": "expense" or "income"
+- "title": short name of what it was for (max 40 characters, English or the user's words)
+- "amount": plain number (no currency symbol), e.g. 1500
+- "category": for expenses exactly one of ${JSON.stringify(EXPENSE_CATEGORIES)}
+- "source": for income exactly one of ${JSON.stringify(INCOME_SOURCES)}
+- "paymentMethod": one of ${JSON.stringify(PAYMENT_METHODS)} or ""
+- "date": YYYY-MM-DD. Today is ${isoDay(today)}. "kal" means yesterday here. NEVER return a date after today.
+Use "" for anything you cannot tell.
+Return JSON: {"items": [{"type": string, "title": string, "amount": number, "category": string, "source": string, "paymentMethod": string, "date": string}]}`,
+          { today: isoDay(today), currency: (await analytics.getMoneySettings(req.user.userId)).currency },
+          undefined,
+          { timeoutMs: 20000, retries: 1, lenientJSON: true, useFallbackModel: true }
+        );
+        const merged = mergeAIItems(parsed.items, ai?.items, {
+          today,
+          categories: EXPENSE_CATEGORIES,
+          sources: INCOME_SOURCES,
+          paymentMethods: PAYMENT_METHODS,
+        });
+        items = merged.items;
+        if (merged.filled) source = parsed.items.every((i) => i.confidence === "low") ? "ai" : "mixed";
+      } catch (error) {
+        if (error.code !== "AI_DISABLED") console.error("Quick add AI error:", error.message);
+      }
+    }
+
+    return res.json({ success: true, data: { items, source } });
+  } catch (error) {
+    console.error("Parse transaction error:", error);
+    return res.status(500).json({ success: false, message: "Could not understand that. Please try again." });
+  }
 };
