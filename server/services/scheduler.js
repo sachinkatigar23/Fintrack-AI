@@ -3,6 +3,7 @@ import { processRecurringTransactions } from "./recurringService.js";
 import { sendBillReminders } from "./notificationService.js";
 import { copyRepeatingBudgets } from "./budgetService.js";
 import { sendShortfallAlerts } from "./planningService.js";
+import { sendSubscriptionAlerts } from "./subscriptionService.js";
 
 const runJobs = async (label) => {
   try {
@@ -26,11 +27,12 @@ const runBudgetRepeat = async (label) => {
   }
 };
 
-// Daily 09:00: money alerts (may run short before payday)
+// Daily 09:00: money alerts (may run short before payday) + subscription renewals / price changes
 const runMorningAlerts = async (label) => {
   try {
     const short = await sendShortfallAlerts();
-    if (short) console.log(`⏰ [${label}] shortfall alerts: ${short}`);
+    const subs = await sendSubscriptionAlerts();
+    if (short || subs) console.log(`⏰ [${label}] shortfall alerts: ${short}, subscription alerts: ${subs}`);
   } catch (error) {
     console.error("Morning alerts error:", error.message);
   }

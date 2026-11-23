@@ -20,6 +20,7 @@ const SECTIONS = [
       ["/savings-goals", "Savings goals", CreditCard],
       ["/bills", "Bills", Bell],
       ["/recurring", "Recurring", AlignLeft],
+      ["/subscriptions", "Subscriptions", Repeat],
     ],
   },
   {

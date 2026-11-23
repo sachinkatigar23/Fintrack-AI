@@ -14,6 +14,7 @@ import aiRoutes from "./ai.routes.js";
 import profileRoutes from "./profile.routes.js";
 import adminRoutes from "./admin.routes.js";
 import planningRoutes from "./planning.routes.js";
+import subscriptionRoutes from "./subscription.routes.js";
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.use("/ai", aiRoutes);
 router.use("/profile", profileRoutes);
 router.use("/admin", adminRoutes);
 router.use("/planning", planningRoutes);
+router.use("/subscriptions", subscriptionRoutes);
 
 export default router;

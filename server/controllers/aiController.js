@@ -15,6 +15,7 @@ import { explainOrFallback, cached, isAIEnabled } from "../services/aiService.js
 import { startOfMonth, endOfMonth, addMonths, monthKey, monthRange } from "../utils/dates.js";
 import { EXPENSE_CATEGORIES, INCOME_SOURCES } from "../utils/constants.js";
 import { getSafeToSpend } from "../services/planningService.js";
+import { getSubscriptions } from "../services/subscriptionService.js";
 
 const isoDay = (d) => {
   const x = new Date(d);
@@ -67,7 +68,10 @@ const buildContext = async (userId) => {
   ]);
 
   // Safe to spend summary (never blocks the coach if it fails)
-  const sts = await getSafeToSpend(userId).catch(() => null);
+  const [sts, subs] = await Promise.all([
+    getSafeToSpend(userId).catch(() => null),
+    getSubscriptions(userId).catch(() => null),
+  ]);
 
   const savings = round2(thisIncome.total - thisExpenses.total);
   const lastByCat = Object.fromEntries(lastCats.map((c) => [c.name, c.amount]));
@@ -133,6 +137,15 @@ const buildContext = async (userId) => {
           safetyBuffer: sts.buffer,
           limitedBy: sts.limitedBy,
           shortBy: sts.shortBy,
+        }
+      : null,
+    subscriptions: subs
+      ? {
+          count: subs.totals.count,
+          monthlyTotal: subs.totals.monthly,
+          yearlyTotal: subs.totals.yearly,
+          pctOfIncome: subs.totals.pctOfIncome,
+          top: subs.items.slice(0, 5).map((i) => ({ name: i.name, monthlyCost: i.monthlyCost, frequency: i.frequency, status: i.status })),
         }
       : null,
   };

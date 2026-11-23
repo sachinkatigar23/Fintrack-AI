@@ -89,3 +89,11 @@ export const planningApi = {
   safeToSpend: () => api.get("/planning/safe-to-spend").then(data),
   afford: (body) => api.post("/planning/afford", body).then(data),
 };
+
+export const subscriptionApi = {
+  list: () => api.get("/subscriptions").then(data),
+  dismiss: (key) => api.post("/subscriptions/dismiss", { key }).then((r) => r.data),
+  restore: (key) => api.post("/subscriptions/restore", { key }).then((r) => r.data),
+  track: (key) => api.post("/subscriptions/track", { key }).then((r) => r.data),
+  remind: (key, remind) => api.post("/subscriptions/remind", { key, remind }).then((r) => r.data),
+};
