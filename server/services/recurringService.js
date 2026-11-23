@@ -3,7 +3,7 @@ import Expense from "../models/Expense.js";
 import Income from "../models/Income.js";
 import { notify, checkBudgetThresholds } from "./notificationService.js";
 import { EXPENSE_CATEGORIES, INCOME_SOURCES } from "../utils/constants.js";
-import { addPeriod } from "../utils/schedule.js";
+import { addPeriod, monthlyEquivalent } from "../utils/schedule.js";
 import { endOfDay } from "../utils/dates.js";
 
 // Day of month a rule keeps (older rules without anchorDay use the day of their current nextDate)
@@ -14,6 +14,20 @@ export const nextOccurrence = (date, frequency, anchorDay) => addPeriod(date, fr
 
 // true when this date is after the rule's last allowed day
 const pastEnd = (rule, date) => Boolean(rule.endDate) && new Date(date) > endOfDay(rule.endDate);
+
+// Summary strip: monthly recurring income / expenses / net (active rules only, pure)
+export const recurringMonthlySummary = (rules) => {
+  const round2 = (n) => Math.round(n * 100) / 100;
+  let income = 0;
+  let expenses = 0;
+  for (const r of rules) {
+    if (!r.active) continue;
+    const m = monthlyEquivalent(r.amount, r.frequency);
+    if (r.type === "income") income += m;
+    else expenses += m;
+  }
+  return { monthlyIncome: round2(income), monthlyExpenses: round2(expenses), net: round2(income - expenses) };
+};
 
 const fmt = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 

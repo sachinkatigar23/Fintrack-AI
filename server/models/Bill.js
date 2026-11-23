@@ -10,6 +10,10 @@ const billSchema = new mongoose.Schema(
     status: { type: String, enum: ["pending", "paid"], default: "pending" },
     // Days before the due date when the reminder is sent
     reminderDays: { type: Number, default: 3, min: 0, max: 30 },
+    // none = one-off bill; otherwise paying it creates the next pending bill
+    repeat: { type: String, enum: ["none", "monthly", "quarterly", "yearly"], default: "none" },
+    // Day of the month a repeating bill keeps (set from dueDate)
+    anchorDay: { type: Number, min: 1, max: 31 },
     paidAt: { type: Date },
     // What was actually paid (can differ from the bill amount)
     paidAmount: { type: Number, min: 0 },

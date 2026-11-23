@@ -666,3 +666,31 @@ tbody tr:hover{background:rgba(124,107,255,.055);box-shadow:inset 3px 0 0 var(--
   .rail-scroll::-webkit-scrollbar-thumb{background:var(--line-hi);border-radius:6px}
   .rail-ft{flex:none}
 }
+@layer components {
+  button.link{background:none;border:0;padding:0;cursor:pointer;font:inherit;font-weight:600}
+  button.link:hover{text-decoration:underline}
+
+  /* Planning pages: grouped sections (Bills, archived goals) */
+  .cgroup{margin-bottom:var(--s5)}
+  .cgroup-hd{display:flex;align-items:center;gap:var(--s3);margin:0 2px var(--s3)}
+  .cgroup-toggle{display:inline-flex;align-items:center;gap:8px;background:none;border:0;padding:0;color:var(--text-2);cursor:pointer}
+  .cgroup-toggle.static{cursor:default}
+  .cgroup-toggle svg{width:14px;height:14px}
+  .cgroup-n{font-family:"JetBrains Mono",monospace;font-size:10px;padding:1px 7px;border-radius:var(--r-pill);border:1px solid var(--line);color:var(--text-2)}
+
+  /* Forms: tick boxes and helper lines */
+  .field.checkline{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;cursor:pointer}
+  .field.checkline > span{font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--text)}
+  .field.checkline input{width:16px;height:16px;accent-color:var(--iris);cursor:pointer}
+  .field.checkline .fhelp{flex-basis:100%;margin-left:26px}
+  .fhelp{font-size:11.5px;line-height:1.45}
+  .form-helper{margin-top:var(--s4);font-size:13px}
+  .form-helper b{font-family:"JetBrains Mono",monospace}
+
+  /* Budget pace marker (where an even pace would be today) */
+  .pace-mark{position:absolute;top:0;bottom:0;width:2px;border-radius:2px;background:var(--text-2);opacity:.7;transform:translateX(-1px)}
+
+  /* Goal history rows */
+  .hist-row{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
+  .hist-row:last-child{border-bottom:0}
+}

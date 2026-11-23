@@ -1,6 +1,9 @@
 import RecurringTransaction from "../models/RecurringTransaction.js";
-import { processRecurringTransactions } from "../services/recurringService.js";
-import { startOfDay } from "../utils/dates.js";
+import { processRecurringTransactions, recurringMonthlySummary, anchorOf } from "../services/recurringService.js";
+import { startOfDay, endOfDay } from "../utils/dates.js";
+import { addPeriod } from "../utils/schedule.js";
+
+const fmtDay = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
 const pick = (body) => {
   const allowed = ["title", "amount", "type", "classification", "frequency", "nextDate", "endDate", "paymentMethod", "active"];
@@ -18,7 +21,7 @@ const END_MESSAGE = "End date can't be before the next date";
 export const listRecurring = async (req, res) => {
   try {
     const records = await RecurringTransaction.find({ user: req.user.userId }).sort({ active: -1, nextDate: 1 });
-    return res.json({ success: true, data: { records } });
+    return res.json({ success: true, data: { records, summary: recurringMonthlySummary(records) } });
   } catch (error) {
     console.error("List recurring error:", error);
     return res.status(500).json({ success: false, message: "Unable to load recurring transactions" });
@@ -62,6 +65,31 @@ export const updateRecurring = async (req, res) => {
     Object.assign(record, data);
     await record.save();
     return res.json({ success: true, message: "Recurring transaction updated", data: { record } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// POST /recurring-transactions/:id/skip - move nextDate one period forward without recording anything
+export const skipRecurring = async (req, res) => {
+  try {
+    const record = await RecurringTransaction.findOne({ _id: req.params.id, user: req.user.userId });
+    if (!record) return res.status(404).json({ success: false, message: "Recurring transaction not found" });
+    if (!record.active) return res.status(400).json({ success: false, message: "Only active rules can be skipped" });
+
+    const skipped = record.nextDate;
+    if (!record.anchorDay) record.anchorDay = anchorOf(record);
+    record.nextDate = addPeriod(record.nextDate, record.frequency, record.anchorDay);
+
+    // Skipping past the end date finishes the rule
+    let message = `Skipped ${fmtDay(skipped)}. Next run ${fmtDay(record.nextDate)}.`;
+    if (record.endDate && record.nextDate > endOfDay(record.endDate)) {
+      record.active = false;
+      record.completedAt = new Date();
+      message = `Skipped ${fmtDay(skipped)}. That was the last payment, so the rule has ended.`;
+    }
+    await record.save();
+    return res.json({ success: true, message, data: { record } });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

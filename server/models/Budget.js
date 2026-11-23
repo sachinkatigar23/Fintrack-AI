@@ -14,6 +14,8 @@ const budgetSchema = new mongoose.Schema(
     },
     // "YYYY-MM"
     month: { type: String, required: true, match: /^\d{4}-(0[1-9]|1[0-2])$/ },
+    // true = copied into the next month automatically (old budgets: false, behave as before)
+    repeat: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

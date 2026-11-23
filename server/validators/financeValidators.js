@@ -1,11 +1,11 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import {
   EXPENSE_CATEGORIES,
   INCOME_SOURCES,
   PAYMENT_METHODS,
   RECURRING_FREQUENCIES,
 } from "../utils/constants.js";
-import { endOfDay } from "../utils/dates.js";
+import { endOfDay, monthKey, addMonths, startOfMonth } from "../utils/dates.js";
 
 // Remove angle brackets so no HTML/script can be stored (React also escapes output)
 const clean = (value) => (typeof value === "string" ? value.replace(/[<>]/g, "").trim() : value);
@@ -80,7 +80,20 @@ export const budgetValidator = (optional = false) => [
   (optional ? body("name").optional() : body("name")).trim().notEmpty().withMessage("Budget name is required").isLength({ max: 80 }).customSanitizer(clean),
   amount("amount", optional),
   body("category").optional().isIn(["Overall", ...EXPENSE_CATEGORIES]).withMessage("Please choose a valid category"),
-  body("month").optional({ values: "falsy" }).matches(/^\d{4}-(0[1-9]|1[0-2])$/).withMessage("Month must look like 2026-10"),
+  body("month")
+    .optional({ values: "falsy" })
+    .matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .withMessage("Month must look like 2026-10")
+    .custom((value) => {
+      // A budget can be planned at most 12 months ahead
+      if (value > monthKey(addMonths(startOfMonth(), 12))) throw new Error("A budget can be set at most 12 months ahead");
+      return true;
+    }),
+  body("repeat").optional().isBoolean().withMessage("Repeat must be true or false").toBoolean(),
+];
+
+export const monthQuery = [
+  query("month").optional({ values: "falsy" }).matches(/^\d{4}-(0[1-9]|1[0-2])$/).withMessage("Month must look like 2026-10"),
 ];
 
 // ───────── Savings goals ─────────
@@ -97,13 +110,35 @@ export const contributionValidator = [
   body("note").optional().trim().isLength({ max: 120 }).customSanitizer(clean),
 ];
 
+// POST /savings-goals/:id/use
+export const useGoalValidator = [
+  ...idParam,
+  body("createExpense").optional().isBoolean().toBoolean(),
+  body("title").optional({ values: "falsy" }).trim().isLength({ max: 100 }).withMessage("Title is too long").customSanitizer(clean),
+  body("category").optional({ values: "falsy" }).isIn(EXPENSE_CATEGORIES).withMessage("Please choose a valid category"),
+  body("paymentMethod").optional({ values: "falsy" }).isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
+];
+
 // ───────── Bills ─────────
+export const BILL_REPEATS = ["none", "monthly", "quarterly", "yearly"];
+
 export const billValidator = (optional = false) => [
   (optional ? body("name").optional() : body("name")).trim().notEmpty().withMessage("Bill name is required").isLength({ max: 80 }).customSanitizer(clean),
   amount("amount", optional),
   date("dueDate", optional, "Due date"),
+  body("category").optional().isIn(EXPENSE_CATEGORIES).withMessage("Please choose a valid category"),
   body("reminderDays").optional({ values: "falsy" }).isInt({ min: 0, max: 30 }).withMessage("Reminder must be 0-30 days").toInt(),
   body("status").optional().isIn(["pending", "paid"]).withMessage("Invalid status"),
+  body("repeat").optional().isIn(BILL_REPEATS).withMessage("Repeat must be none, monthly, quarterly or yearly"),
+];
+
+// POST /bills/:id/pay  { amount?, paidOn?, paymentMethod?, createExpense? }
+export const payBillValidator = [
+  ...idParam,
+  amount("amount", true),
+  notFuture("paidOn"),
+  body("paymentMethod").optional({ values: "falsy" }).isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
+  body("createExpense").optional().isBoolean().toBoolean(),
 ];
 
 // ───────── Recurring ─────────

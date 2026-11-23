@@ -1,12 +1,24 @@
 import Bill from "../models/Bill.js";
 import Expense from "../models/Expense.js";
+import RecurringTransaction from "../models/RecurringTransaction.js";
 import { EXPENSE_CATEGORIES } from "../utils/constants.js";
 import { checkBudgetThresholds } from "../services/notificationService.js";
-import { revertBillPayment } from "../services/billService.js";
+import { revertBillPayment, nextDueDate, normalizeName } from "../services/billService.js";
 
 const pick = (body) => {
-  const allowed = ["name", "amount", "dueDate", "category", "reminderDays", "status"];
+  const allowed = ["name", "amount", "dueDate", "category", "reminderDays", "status", "repeat"];
   return Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
+};
+
+// A bill that an active recurring expense rule already records -> warn about double counting
+const doubleCountWarning = async (userId, name) => {
+  const key = normalizeName(name);
+  if (!key) return null;
+  const rules = await RecurringTransaction.find({ user: userId, active: true, type: "expense" }).select("title").lean();
+  const rule = rules.find((r) => normalizeName(r.title) === key);
+  return rule
+    ? `You also have a recurring rule '${rule.title}' that records this automatically – keep only one to avoid double counting.`
+    : null;
 };
 
 export const listBills = async (req, res) => {
@@ -22,8 +34,11 @@ export const listBills = async (req, res) => {
 
 export const createBill = async (req, res) => {
   try {
-    const record = await Bill.create({ ...pick(req.body), user: req.user.userId });
-    return res.status(201).json({ success: true, message: "Bill added", data: { record } });
+    const data = pick(req.body);
+    if (data.dueDate) data.anchorDay = new Date(data.dueDate).getDate();
+    const record = await Bill.create({ ...data, user: req.user.userId });
+    const warning = await doubleCountWarning(req.user.userId, record.name);
+    return res.status(201).json({ success: true, message: "Bill added", data: { record, warning } });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
@@ -31,52 +46,80 @@ export const createBill = async (req, res) => {
 
 export const updateBill = async (req, res) => {
   try {
-    const record = await Bill.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.userId },
-      pick(req.body),
-      { returnDocument: "after", runValidators: true }
-    );
+    const data = pick(req.body);
+    // A new due date also moves the anchor day of a repeating bill
+    if (data.dueDate) data.anchorDay = new Date(data.dueDate).getDate();
+    const record = await Bill.findOneAndUpdate({ _id: req.params.id, user: req.user.userId }, data, {
+      returnDocument: "after",
+      runValidators: true,
+    });
     if (!record) return res.status(404).json({ success: false, message: "Bill not found" });
-    return res.json({ success: true, message: "Bill updated", data: { record } });
+    const warning = await doubleCountWarning(req.user.userId, record.name);
+    return res.json({ success: true, message: "Bill updated", data: { record, warning } });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// POST /bills/:id/pay  { createExpense?: boolean, paymentMethod? }
-// Marks the bill as paid and (by default) records the matching expense
+// POST /bills/:id/pay  { amount?, paidOn?, paymentMethod?, createExpense? }
+// Marks the bill as paid, (by default) records the expense with the actual amount and date,
+// and creates the next pending bill when the bill repeats.
 export const payBill = async (req, res) => {
   try {
     const bill = await Bill.findOne({ _id: req.params.id, user: req.user.userId });
     if (!bill) return res.status(404).json({ success: false, message: "Bill not found" });
     if (bill.status === "paid") return res.status(400).json({ success: false, message: "Bill is already paid" });
 
+    const paidAmount = Number(req.body.amount) > 0 ? Math.round(Number(req.body.amount) * 100) / 100 : bill.amount;
+    const paidAt = req.body.paidOn ? new Date(req.body.paidOn) : new Date();
+
     bill.status = "paid";
-    bill.paidAt = new Date();
+    bill.paidAt = paidAt;
+    bill.paidAmount = paidAmount;
 
     if (req.body.createExpense !== false) {
       const expense = await Expense.create({
         user: req.user.userId,
         title: bill.name,
-        amount: bill.amount,
+        amount: paidAmount,
         category: EXPENSE_CATEGORIES.includes(bill.category) ? bill.category : "Bills & Utilities",
         paymentMethod: req.body.paymentMethod || "upi",
-        date: new Date(),
+        date: paidAt,
         notes: "Bill payment",
         isRecurring: true,
       });
       bill.expense = expense._id;
-      await checkBudgetThresholds(req.user.userId);
+      await checkBudgetThresholds(req.user.userId, paidAt);
+    }
+
+    // Repeating bill: the next one is created as pending, one period later
+    let next = null;
+    const dueDate = nextDueDate(bill);
+    if (dueDate && !bill.nextBill) {
+      next = await Bill.create({
+        user: req.user.userId,
+        name: bill.name,
+        category: bill.category,
+        amount: bill.amount,
+        reminderDays: bill.reminderDays,
+        repeat: bill.repeat,
+        anchorDay: bill.anchorDay || new Date(bill.dueDate).getDate(),
+        dueDate,
+      });
+      bill.nextBill = next._id;
     }
 
     await bill.save();
-    return res.json({ success: true, message: "Bill marked as paid", data: { record: bill } });
+    const message = next
+      ? `Bill paid. Next one added for ${dueDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}.`
+      : "Bill marked as paid";
+    return res.json({ success: true, message, data: { record: bill, nextBill: next } });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// POST /bills/:id/unpay - undo (removes the auto-created expense)
+// POST /bills/:id/unpay - undo (removes the auto-created expense and the untouched next bill)
 export const unpayBill = async (req, res) => {
   const bill = await Bill.findOne({ _id: req.params.id, user: req.user.userId });
   if (!bill) return res.status(404).json({ success: false, message: "Bill not found" });

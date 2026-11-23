@@ -21,6 +21,7 @@ import {
   monthRange,
 } from "../utils/dates.js";
 import { LEAK_MAX_AMOUNT, LEAK_MIN_COUNT } from "../utils/constants.js";
+import { budgetPace } from "./budgetService.js";
 
 const oid = (id) => new mongoose.Types.ObjectId(String(id));
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -204,6 +205,8 @@ export const getBudgetPerformance = async (userId, key = monthKey()) => {
       remaining: round2(b.amount - spent),
       usedPct: round2(usedPct),
       status: usedPct >= 100 ? "over" : usedPct >= 80 ? "warning" : "ok",
+      // Pace and projection (current month), or how the month ended (past months)
+      ...budgetPace({ amount: b.amount, spent, month: key, today: new Date() }),
     };
   });
 
