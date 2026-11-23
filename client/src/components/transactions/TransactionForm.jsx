@@ -14,7 +14,10 @@ import { errorMessage, fileUrl } from "../../api/axios.js";
 const schema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100, "Title is too long"),
   amount: z.coerce.number({ invalid_type_error: "Enter a valid amount" }).positive("Amount must be greater than 0").max(100000000, "Amount is too large"),
-  date: z.string().min(1, "Date is required"),
+  date: z
+    .string()
+    .min(1, "Date is required")
+    .refine((v) => v <= toInputDate(), "Date can't be in the future. Use Bills or Recurring for upcoming payments."),
   classification: z.string().min(1, "Please choose one"),
   paymentMethod: z.string().min(1),
   notes: z.string().max(500, "Notes are too long").optional(),
@@ -114,7 +117,8 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
           setValue("classification", d.category, opts);
           filled.push("category");
         }
-        if (/^\d{4}-\d{2}-\d{2}$/.test(String(d.date ?? ""))) {
+        // A future date (misread receipt) is ignored: today stays
+        if (/^\d{4}-\d{2}-\d{2}$/.test(String(d.date ?? "")) && d.date <= toInputDate()) {
           setValue("date", d.date, opts);
           filled.push("date");
         }
@@ -206,7 +210,7 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
 
           <label className="field">
             <span>Date</span>
-            <input className={`input${errors.date ? " err" : ""}`} type="date" max={toInputDate(new Date(Date.now() + 366 * 86400000))} {...register("date")} />
+            <input className={`input${errors.date ? " err" : ""}`} type="date" max={toInputDate()} {...register("date")} />
             {errors.date && <small className="ferr">{errors.date.message}</small>}
           </label>
 

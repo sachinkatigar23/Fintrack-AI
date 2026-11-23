@@ -66,8 +66,8 @@ export default function Transactions() {
   const remove = async (item) => {
     if (!window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
     try {
-      await (item.type === "income" ? incomeApi : expenseApi).remove(item._id);
-      toast.success("Transaction deleted");
+      const res = await (item.type === "income" ? incomeApi : expenseApi).remove(item._id);
+      toast.success(res?.billReset ? res.message : "Transaction deleted");
       window.dispatchEvent(new Event("fintrack:data-changed"));
       load();
     } catch (err) {

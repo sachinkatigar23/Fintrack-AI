@@ -50,6 +50,28 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // ── Money settings (used by Safe to spend) ──
+    // Money the user already had when they started using FinTrack
+    openingBalance: {
+      type: Number,
+      default: 0,
+    },
+
+    // Day of the month salary usually arrives (used when there is no recurring income rule)
+    salaryDay: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 31,
+    },
+
+    // Amount that is never counted as spendable
+    safetyBuffer: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     lastLoginAt: {
       type: Date,
     },

@@ -1,4 +1,6 @@
 import "dotenv/config";
+// Day boundaries ("today", months) are local time in India unless TZ is set
+process.env.TZ = process.env.TZ || "Asia/Kolkata";
 import app from "./app.js";
 import connectDB from "./config/db.js";
 import { startScheduler } from "./services/scheduler.js";

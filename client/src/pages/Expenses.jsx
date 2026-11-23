@@ -63,9 +63,9 @@ export default function Expenses() {
   const remove = async (item) => {
     if (!window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
     try {
-      await expenseApi.remove(item._id);
+      const res = await expenseApi.remove(item._id);
       setExpenses((list) => list.filter((e) => e._id !== item._id));
-      toast.success("Expense deleted");
+      toast.success(res?.message || "Expense deleted");
       window.dispatchEvent(new Event("fintrack:data-changed"));
     } catch (err) {
       toast.error(errorMessage(err, "Could not delete expense"));

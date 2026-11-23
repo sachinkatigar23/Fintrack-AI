@@ -9,11 +9,16 @@ const safe = (user) => {
   return u;
 };
 
-// PUT /profile  { name, currency }
+// PUT /profile  { name, currency, openingBalance, salaryDay, safetyBuffer }
 export const updateProfile = async (req, res) => {
   const updates = {};
   if (typeof req.body.name === "string") updates.name = req.body.name.trim();
   if (typeof req.body.currency === "string") updates.currency = req.body.currency.trim().toUpperCase().slice(0, 3);
+  // Money settings (validated by the route)
+  for (const key of ["openingBalance", "salaryDay", "safetyBuffer"]) {
+    const value = req.body[key];
+    if (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value))) updates[key] = Number(value);
+  }
 
   const user = await User.findByIdAndUpdate(req.user.userId, updates, { returnDocument: "after", runValidators: true });
   if (!user) return res.status(404).json({ success: false, message: "User not found" });

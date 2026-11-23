@@ -10,6 +10,7 @@ import Income from "../models/Income.js";
 import Budget from "../models/Budget.js";
 import Bill from "../models/Bill.js";
 import SavingsGoal from "../models/SavingsGoal.js";
+import User from "../models/User.js";
 import {
   startOfMonth,
   endOfMonth,
@@ -47,6 +48,42 @@ export const sumExpenses = async (userId, start, end) => {
     { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
   ]);
   return { total: round2(r[0]?.total), count: r[0]?.count || 0 };
+};
+
+// ───────── Balance (one definition everywhere) ─────────
+// Available balance = opening balance + all income - all expenses
+export const computeAvailableBalance = (openingBalance, totalIncome, totalExpenses) =>
+  round2((Number(openingBalance) || 0) + (Number(totalIncome) || 0) - (Number(totalExpenses) || 0));
+
+// The user's money settings (currency + Safe to spend settings), with defaults for older accounts
+export const getMoneySettings = async (userId) => {
+  const u = await User.findById(userId).select("currency openingBalance salaryDay safetyBuffer").lean();
+  return {
+    currency: u?.currency || "INR",
+    openingBalance: Number(u?.openingBalance) || 0,
+    salaryDay: Number(u?.salaryDay) || 1,
+    safetyBuffer: Math.max(0, Number(u?.safetyBuffer) || 0),
+  };
+};
+
+// Money that goals hold: still in the account but not spendable (archived goals are spent/closed)
+export const getGoalReserve = async (userId) => {
+  const r = await SavingsGoal.aggregate([
+    { $match: { user: oid(userId), status: { $in: ["active", "completed"] } } },
+    { $group: { _id: null, total: { $sum: "$savedAmount" } } },
+  ]);
+  return round2(r[0]?.total);
+};
+
+export const getAvailableBalance = async (userId) => {
+  const [settings, income, expenses] = await Promise.all([getMoneySettings(userId), sumIncome(userId), sumExpenses(userId)]);
+  return {
+    balance: computeAvailableBalance(settings.openingBalance, income.total, expenses.total),
+    openingBalance: settings.openingBalance,
+    totalIncome: income.total,
+    totalExpenses: expenses.total,
+    incomeCount: income.count,
+  };
 };
 
 export const getMonthlyIncome = async (userId, ref = new Date()) =>
@@ -376,7 +413,7 @@ export const getAnomaliesAndLeaks = async (userId) => {
 
 // ───────── Goals ─────────
 export const getSavingsGoalProjections = async (userId) => {
-  const goals = await SavingsGoal.find({ user: userId, status: { $ne: "completed" } }).sort({ targetDate: 1 });
+  const goals = await SavingsGoal.find({ user: userId, status: "active" }).sort({ targetDate: 1 });
   const currentSavings = await getSavings(userId);
 
   // Average monthly savings over the last 3 months gives a steadier pace

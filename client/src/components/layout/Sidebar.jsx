@@ -42,6 +42,7 @@ export default function Sidebar({ streak }) {
 
   return (
     <aside className="rail">
+      <div className="rail-scroll">
       {sections.map((section) => (
         <div key={section.title}>
           <div className="rail-hd">{section.title}</div>
@@ -53,6 +54,7 @@ export default function Sidebar({ streak }) {
           ))}
         </div>
       ))}
+      </div>
 
       <div className="rail-ft">
         <div className="streak">

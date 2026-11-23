@@ -165,9 +165,15 @@ export default function Dashboard() {
           loading={loading}
           money={money}
           foot={
-            <>
-              <span className="tag pos">LIVE</span> from your records
-            </>
+            d.goalReserve > 0 ? (
+              <>
+                <span className="tag iris">GOALS</span> {money.fmt0(d.goalReserve)} reserved in goals
+              </>
+            ) : (
+              <>
+                <span className="tag pos">LIVE</span> from your records
+              </>
+            )
           }
         />
         <StatCard

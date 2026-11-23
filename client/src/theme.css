@@ -654,3 +654,15 @@ tbody tr:hover{background:rgba(124,107,255,.055);box-shadow:inset 3px 0 0 var(--
   html.light .auth-card .field > span{color:#334155}
   html.light .auth-card .input{background:#F7F9FC;border-color:#E3E8F1}
 }
+
+/* ═══════════════════════════════════════════════
+   UPGRADE V2 - sidebar scroll, planning, safe to spend, quick add
+   ═══════════════════════════════════════════════ */
+@layer components {
+  /* Sidebar: the links scroll when the window is short; streak + Log out stay visible */
+  .rail{overflow:hidden}
+  .rail-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:0 calc(-1 * var(--s1));padding:0 var(--s1)}
+  .rail-scroll::-webkit-scrollbar{width:6px}
+  .rail-scroll::-webkit-scrollbar-thumb{background:var(--line-hi);border-radius:6px}
+  .rail-ft{flex:none}
+}

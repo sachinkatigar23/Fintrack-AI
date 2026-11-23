@@ -14,6 +14,11 @@ const recurringSchema = new mongoose.Schema(
     paymentMethod: { type: String, enum: PAYMENT_METHODS, default: "upi" },
     active: { type: Boolean, default: true },
     lastRunAt: { type: Date },
+    // Day of the month the schedule keeps (1-31). Older rules without it use the day of nextDate.
+    anchorDay: { type: Number, min: 1, max: 31 },
+    // Optional last date; after it the rule is finished (active=false, completedAt set)
+    endDate: { type: Date },
+    completedAt: { type: Date },
   },
   { timestamps: true }
 );

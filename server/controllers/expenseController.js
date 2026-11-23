@@ -4,6 +4,7 @@ import { EXPENSE_CATEGORIES } from "../utils/constants.js";
 import { checkBudgetThresholds } from "../services/notificationService.js";
 import { generateJSON } from "../services/aiService.js";
 import { storeFile } from "../services/storageService.js";
+import { releaseBillForExpense } from "../services/billService.js";
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -70,7 +71,13 @@ export const deleteExpense = async (req, res) => {
   try {
     const expense = await Expense.findOneAndDelete({ _id: req.params.id, user: req.user.userId });
     if (!expense) return res.status(404).json({ success: false, message: "Expense not found" });
-    return res.status(200).json({ success: true, message: "Expense deleted" });
+    // An expense created by paying a bill: that bill becomes unpaid again
+    const bill = await releaseBillForExpense(expense._id, req.user.userId);
+    return res.status(200).json({
+      success: true,
+      message: bill ? `Expense deleted. Bill '${bill.name}' is marked unpaid again.` : "Expense deleted",
+      billReset: bill ? { id: bill._id, name: bill.name } : null,
+    });
   } catch (error) {
     console.error("Delete expense error:", error);
     return res.status(500).json({ success: false, message: "Unable to delete expense" });

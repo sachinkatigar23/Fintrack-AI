@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Camera, Moon, Sun } from "../components/common/icons.js";
 import toast from "react-hot-toast";
 import PageHeader from "../components/common/PageHeader.jsx";
@@ -26,6 +27,40 @@ export default function Profile() {
   const [pw, setPw] = useState({ currentPassword: "", newPassword: "", confirm: "" });
   const [pwSaving, setPwSaving] = useState(false);
   const fileRef = useRef(null);
+  const moneyRef = useRef(null);
+  const location = useLocation();
+  const [moneyForm, setMoneyForm] = useState({
+    openingBalance: String(user?.openingBalance ?? 0),
+    salaryDay: String(user?.salaryDay ?? 1),
+    safetyBuffer: String(user?.safetyBuffer ?? 0),
+  });
+  const [moneySaving, setMoneySaving] = useState(false);
+
+  // /profile#money-settings (linked from Safe to spend) scrolls to the card
+  useEffect(() => {
+    if (location.hash === "#money-settings") moneyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash]);
+
+  const saveMoney = async (e) => {
+    e.preventDefault();
+    const openingBalance = Number(moneyForm.openingBalance || 0);
+    const salaryDay = Number(moneyForm.salaryDay || 1);
+    const safetyBuffer = Number(moneyForm.safetyBuffer || 0);
+    if (!Number.isFinite(openingBalance)) return toast.error("Starting balance must be a number");
+    if (!Number.isInteger(salaryDay) || salaryDay < 1 || salaryDay > 31) return toast.error("Salary day must be between 1 and 31");
+    if (!Number.isFinite(safetyBuffer) || safetyBuffer < 0) return toast.error("Safety buffer can't be negative");
+    setMoneySaving(true);
+    try {
+      const d = await profileApi.update({ openingBalance, salaryDay, safetyBuffer });
+      updateUser(d.user);
+      toast.success("Money settings saved");
+      window.dispatchEvent(new Event("fintrack:data-changed"));
+    } catch (err) {
+      toast.error(errorMessage(err, "Could not save money settings"));
+    } finally {
+      setMoneySaving(false);
+    }
+  };
 
   const saveProfile = async (e) => {
     e.preventDefault();
@@ -109,6 +144,7 @@ export default function Profile() {
                   </option>
                 ))}
               </select>
+              <small className="faint" style={{ fontSize: 11.5 }}>Only the symbol changes – amounts are not converted.</small>
             </label>
             <div className="field">
               <span>Theme</span>
@@ -119,6 +155,54 @@ export default function Profile() {
             <div>
               <button type="submit" className="btn primary" disabled={saving}>
                 {saving && <span className="spin" />} Save changes
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="card card-pad" id="money-settings" ref={moneyRef} style={{ scrollMarginTop: 16 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600 }}>Money settings</h3>
+          <p className="section-sub" style={{ marginBottom: 18 }}>Used by Safe to spend and your available balance.</p>
+          <form onSubmit={saveMoney} className="flex flex-col gap-4">
+            <label className="field">
+              <span>Starting balance</span>
+              <input
+                className="input"
+                type="number"
+                step="0.01"
+                value={moneyForm.openingBalance}
+                onChange={(e) => setMoneyForm({ ...moneyForm, openingBalance: e.target.value })}
+              />
+              <small className="faint" style={{ fontSize: 11.5 }}>Money you already had when you started using FinTrack.</small>
+            </label>
+            <label className="field">
+              <span>Salary day</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="31"
+                step="1"
+                value={moneyForm.salaryDay}
+                onChange={(e) => setMoneyForm({ ...moneyForm, salaryDay: e.target.value })}
+              />
+              <small className="faint" style={{ fontSize: 11.5 }}>Day of the month your pay usually arrives. Used when you have no recurring income rule.</small>
+            </label>
+            <label className="field">
+              <span>Safety buffer</span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="0.01"
+                value={moneyForm.safetyBuffer}
+                onChange={(e) => setMoneyForm({ ...moneyForm, safetyBuffer: e.target.value })}
+              />
+              <small className="faint" style={{ fontSize: 11.5 }}>An amount that is never counted as spendable – your emergency cushion.</small>
+            </label>
+            <div>
+              <button type="submit" className="btn primary" disabled={moneySaving}>
+                {moneySaving && <span className="spin" />} Save money settings
               </button>
             </div>
           </form>

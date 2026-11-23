@@ -3,21 +3,26 @@ import Expense from "../models/Expense.js";
 import Income from "../models/Income.js";
 import { notify, checkBudgetThresholds } from "./notificationService.js";
 import { EXPENSE_CATEGORIES, INCOME_SOURCES } from "../utils/constants.js";
+import { addPeriod } from "../utils/schedule.js";
+import { endOfDay } from "../utils/dates.js";
 
-// Move a date forward by one period
-export const nextOccurrence = (date, frequency) => {
-  const value = new Date(date);
-  if (frequency === "daily") value.setDate(value.getDate() + 1);
-  else if (frequency === "weekly") value.setDate(value.getDate() + 7);
-  else if (frequency === "yearly") value.setFullYear(value.getFullYear() + 1);
-  else value.setMonth(value.getMonth() + 1);
-  return value;
-};
+// Day of month a rule keeps (older rules without anchorDay use the day of their current nextDate)
+export const anchorOf = (rule) => rule.anchorDay || new Date(rule.nextDate).getDate();
+
+// Move a date forward by one period (kept for older callers; uses the shared schedule helper)
+export const nextOccurrence = (date, frequency, anchorDay) => addPeriod(date, frequency, anchorDay);
+
+// true when this date is after the rule's last allowed day
+const pastEnd = (rule, date) => Boolean(rule.endDate) && new Date(date) > endOfDay(rule.endDate);
+
+const fmt = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
 /**
  * Create the real income/expense records for every active rule that is due,
  * then move each rule's next date forward. Catches up missed periods
  * (e.g. if the server was off for a few days), max 24 per rule per run.
+ * When the next payment would fall after the rule's endDate, the rule is
+ * finished: active=false, completedAt=now and one notification is sent.
  */
 export const processRecurringTransactions = async (userId) => {
   const query = { active: true, nextDate: { $lte: new Date() } };
@@ -38,7 +43,10 @@ export const processRecurringTransactions = async (userId) => {
         ? "Added automatically by a recurring rule"
         : `Added automatically by a recurring rule (${item.type === "expense" ? "category" : "source"}: ${String(item.classification || "").slice(0, 100)})`;
 
-      while (item.nextDate <= new Date() && runs < 24) {
+      if (!item.anchorDay) item.anchorDay = anchorOf(item);
+      let lastDate = null;
+
+      while (item.nextDate <= new Date() && runs < 24 && !pastEnd(item, item.nextDate)) {
         const base = {
           user: item.user,
           title: item.title,
@@ -51,17 +59,37 @@ export const processRecurringTransactions = async (userId) => {
         if (item.type === "expense") await Expense.create({ ...base, category: classification });
         else await Income.create({ ...base, source: classification });
 
-        item.nextDate = nextOccurrence(item.nextDate, item.frequency);
+        lastDate = item.nextDate;
+        item.nextDate = addPeriod(item.nextDate, item.frequency, item.anchorDay);
         runs += 1;
         created += 1;
       }
       item.lastRunAt = new Date();
+
+      // End date reached: the next payment would fall after it, so the rule is finished
+      const finished = pastEnd(item, item.nextDate);
+      if (finished) {
+        item.active = false;
+        item.completedAt = new Date();
+      }
       await item.save();
+
+      if (finished) {
+        const last = lastDate || addPeriod(item.nextDate, item.frequency, item.anchorDay, -1);
+        await notify(item.user, {
+          type: "recurring",
+          title: `${item.title} has finished`,
+          message: `${item.title} has finished (last payment on ${fmt(last)}).`,
+          link: "/recurring",
+          key: `recurring:${item._id}:finished`,
+        });
+      }
+      if (!runs) continue;
 
       await notify(item.user, {
         type: "recurring",
         title: `Recurring ${item.type} added`,
-        message: `${item.title} (₹${item.amount.toLocaleString("en-IN")}) was recorded${runs > 1 ? ` ${runs} times` : ""}. Next run: ${item.nextDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}.`,
+        message: `${item.title} (₹${item.amount.toLocaleString("en-IN")}) was recorded${runs > 1 ? ` ${runs} times` : ""}. ${finished ? "That was the last payment." : `Next run: ${fmt(item.nextDate)}.`}`,
         link: "/recurring",
       });
 

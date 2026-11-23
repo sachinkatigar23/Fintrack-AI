@@ -11,8 +11,12 @@ const billSchema = new mongoose.Schema(
     // Days before the due date when the reminder is sent
     reminderDays: { type: Number, default: 3, min: 0, max: 30 },
     paidAt: { type: Date },
+    // What was actually paid (can differ from the bill amount)
+    paidAmount: { type: Number, min: 0 },
     // Expense created when the bill was marked as paid
     expense: { type: mongoose.Schema.Types.ObjectId, ref: "Expense" },
+    // Next pending bill created automatically when a repeating bill was paid
+    nextBill: { type: mongoose.Schema.Types.ObjectId, ref: "Bill" },
   },
   { timestamps: true }
 );

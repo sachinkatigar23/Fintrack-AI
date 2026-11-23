@@ -13,13 +13,14 @@ export const getAnalytics = async (req, res) => {
     const period = req.query.period || "all";
     const { start, end } = periodRange(period);
 
-    const [income, expenses, categories, sources, trend, health] = await Promise.all([
+    const [income, expenses, categories, sources, trend, health, available] = await Promise.all([
       analytics.sumIncome(userId, start, end),
       analytics.sumExpenses(userId, start, end),
       analytics.getCategoryBreakdown(userId, start, end),
       analytics.getIncomeBreakdown(userId, start, end),
       analytics.getMonthlyTrend(userId, 6),
       analytics.getHealthScore(userId),
+      analytics.getAvailableBalance(userId),
     ]);
 
     const totalIncome = income.total;
@@ -31,7 +32,11 @@ export const getAnalytics = async (req, res) => {
         period,
         totalIncome,
         totalExpenses,
-        balance: round2(totalIncome - totalExpenses),
+        // "All time" uses the one balance formula (opening balance + income - expenses);
+        // shorter periods show that period's net (income - expenses)
+        balance: period === "all" ? available.balance : round2(totalIncome - totalExpenses),
+        availableBalance: available.balance,
+        openingBalance: available.openingBalance,
         savingsRate: totalIncome ? round2(((totalIncome - totalExpenses) / totalIncome) * 100) : 0,
         categories,
         sources,

@@ -1,10 +1,19 @@
 import RecurringTransaction from "../models/RecurringTransaction.js";
 import { processRecurringTransactions } from "../services/recurringService.js";
+import { startOfDay } from "../utils/dates.js";
 
 const pick = (body) => {
-  const allowed = ["title", "amount", "type", "classification", "frequency", "nextDate", "paymentMethod", "active"];
-  return Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
+  const allowed = ["title", "amount", "type", "classification", "frequency", "nextDate", "endDate", "paymentMethod", "active"];
+  const data = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
+  if (data.endDate === "") data.endDate = null;
+  return data;
 };
+
+// endDate must not be before nextDate (compared by calendar day)
+const endBeforeNext = (nextDate, endDate) =>
+  Boolean(nextDate && endDate) && startOfDay(new Date(endDate)) < startOfDay(new Date(nextDate));
+
+const END_MESSAGE = "End date can't be before the next date";
 
 export const listRecurring = async (req, res) => {
   try {
@@ -18,7 +27,12 @@ export const listRecurring = async (req, res) => {
 
 export const createRecurring = async (req, res) => {
   try {
-    const record = await RecurringTransaction.create({ ...pick(req.body), user: req.user.userId });
+    const data = pick(req.body);
+    if (endBeforeNext(data.nextDate, data.endDate)) return res.status(400).json({ success: false, message: END_MESSAGE });
+    // The schedule keeps the day of the month of the first date (Jan 31 -> Feb 28 -> Mar 31)
+    data.anchorDay = new Date(data.nextDate).getDate();
+
+    const record = await RecurringTransaction.create({ ...data, user: req.user.userId });
     // If the first run date is today or earlier, process it right away
     if (record.active && record.nextDate <= new Date()) {
       await processRecurringTransactions(req.user.userId);
@@ -32,12 +46,21 @@ export const createRecurring = async (req, res) => {
 
 export const updateRecurring = async (req, res) => {
   try {
-    const record = await RecurringTransaction.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.userId },
-      pick(req.body),
-      { returnDocument: "after", runValidators: true }
-    );
+    const record = await RecurringTransaction.findOne({ _id: req.params.id, user: req.user.userId });
     if (!record) return res.status(404).json({ success: false, message: "Recurring transaction not found" });
+
+    const data = pick(req.body);
+    const nextDate = data.nextDate ?? record.nextDate;
+    const endDate = "endDate" in data ? data.endDate : record.endDate;
+    if (endBeforeNext(nextDate, endDate)) return res.status(400).json({ success: false, message: END_MESSAGE });
+
+    // A new next date also moves the anchor day
+    if (data.nextDate) data.anchorDay = new Date(data.nextDate).getDate();
+    // Resuming a finished rule clears its "completed" mark
+    if (data.active === true) data.completedAt = null;
+
+    Object.assign(record, data);
+    await record.save();
     return res.json({ success: true, message: "Recurring transaction updated", data: { record } });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

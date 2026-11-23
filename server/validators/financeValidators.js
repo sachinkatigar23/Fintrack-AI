@@ -5,6 +5,7 @@ import {
   PAYMENT_METHODS,
   RECURRING_FREQUENCIES,
 } from "../utils/constants.js";
+import { endOfDay } from "../utils/dates.js";
 
 // Remove angle brackets so no HTML/script can be stored (React also escapes output)
 const clean = (value) => (typeof value === "string" ? value.replace(/[<>]/g, "").trim() : value);
@@ -24,6 +25,14 @@ const date = (field, optional = true, label = "Date") => {
     .withMessage(`${label} must be a valid date`);
 };
 
+// Income and expenses record money that already moved: no dates after today
+export const FUTURE_DATE_MESSAGE = "Date can't be in the future. Use Bills or Recurring for upcoming payments.";
+const notFuture = (field = "date") =>
+  date(field).custom((value) => {
+    if (value && new Date(value) > endOfDay()) throw new Error(FUTURE_DATE_MESSAGE);
+    return true;
+  });
+
 export const idParam = [param("id").isMongoId().withMessage("Invalid record id")];
 
 // ───────── Expenses ─────────
@@ -32,7 +41,7 @@ export const createExpenseValidator = [
   amount(),
   body("category").isIn(EXPENSE_CATEGORIES).withMessage("Please choose a valid category"),
   body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
-  date("date"),
+  notFuture("date"),
   body("notes").optional().trim().isLength({ max: 500 }).withMessage("Notes are too long").customSanitizer(clean),
 ];
 
@@ -42,7 +51,7 @@ export const updateExpenseValidator = [
   amount("amount", true),
   body("category").optional().isIn(EXPENSE_CATEGORIES).withMessage("Please choose a valid category"),
   body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
-  date("date"),
+  notFuture("date"),
   body("notes").optional().trim().isLength({ max: 500 }).customSanitizer(clean),
 ];
 
@@ -52,7 +61,7 @@ export const createIncomeValidator = [
   amount(),
   body("source").isIn(INCOME_SOURCES).withMessage("Please choose a valid source"),
   body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
-  date("date"),
+  notFuture("date"),
   body("notes").optional().trim().isLength({ max: 500 }).customSanitizer(clean),
 ];
 
@@ -62,7 +71,7 @@ export const updateIncomeValidator = [
   amount("amount", true),
   body("source").optional().isIn(INCOME_SOURCES).withMessage("Please choose a valid source"),
   body("paymentMethod").optional().isIn(PAYMENT_METHODS).withMessage("Invalid payment method"),
-  date("date"),
+  notFuture("date"),
   body("notes").optional().trim().isLength({ max: 500 }).customSanitizer(clean),
 ];
 
@@ -111,5 +120,6 @@ export const recurringValidator = (optional = false) => [
     }),
   body("frequency").optional().isIn(RECURRING_FREQUENCIES).withMessage("Invalid frequency"),
   date("nextDate", optional, "Next date"),
+  body("endDate").optional({ values: "falsy" }).isISO8601().withMessage("End date must be a valid date"),
   body("active").optional().isBoolean().toBoolean(),
 ];

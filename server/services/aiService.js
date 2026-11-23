@@ -19,12 +19,20 @@ const getClient = () => {
 
 export const isAIEnabled = () => Boolean(process.env.GEMINI_API_KEY);
 
-// Shared instructions added to every prompt
-const SYSTEM_RULES = `
+// Shared instructions added to every prompt. The currency comes from the
+// user's profile (context.currency); amounts are never converted.
+const currencyRule = (code) => {
+  const c = /^[A-Z]{3}$/.test(String(code || "")) ? code : "INR";
+  return c === "INR"
+    ? "Money is in Indian Rupees (INR). Write amounts like ₹4,940 (never use $)."
+    : `Money is in ${c}. Write amounts with the ${c} currency symbol, using the numbers exactly as given.`;
+};
+
+const systemRules = (currency) => `
 You are FinTrack AI, a friendly personal finance coach for users in India.
 Rules:
 - Use ONLY the numbers given in the context. Never invent, estimate or recalculate figures.
-- Money is in Indian Rupees. Write amounts like ₹4,940 (never use $).
+- ${currencyRule(currency)}
 - Be short, clear and practical. No legal or investment guarantees.
 - Reply with valid JSON only, matching the requested format exactly.
 `;
@@ -113,7 +121,7 @@ const generateJSONOnce = async (task, context = {}, file, opts = {}) => {
     throw err;
   }
 
-  const prompt = `${SYSTEM_RULES}\nTASK:\n${task}\n\nVERIFIED CONTEXT (JSON):\n${JSON.stringify(context)}`;
+  const prompt = `${systemRules(context?.currency)}\nTASK:\n${task}\n\nVERIFIED CONTEXT (JSON):\n${JSON.stringify(context)}`;
 
   const contents = file?.imagePath
     ? [

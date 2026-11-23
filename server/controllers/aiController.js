@@ -36,6 +36,8 @@ const buildContext = async (userId) => {
     bills,
     averages,
     merchants,
+    settings,
+    available,
   ] = await Promise.all([
     analytics.sumIncome(userId, startOfMonth(now), endOfMonth(now)),
     analytics.sumExpenses(userId, startOfMonth(now), endOfMonth(now)),
@@ -54,13 +56,17 @@ const buildContext = async (userId) => {
       { $sort: { total: -1 } },
       { $limit: 5 },
     ]),
+    analytics.getMoneySettings(userId),
+    analytics.getAvailableBalance(userId),
   ]);
 
   const savings = round2(thisIncome.total - thisExpenses.total);
   const lastByCat = Object.fromEntries(lastCats.map((c) => [c.name, c.amount]));
 
   return {
-    currency: "INR",
+    currency: settings.currency,
+    // Available balance = opening balance + all income - all expenses
+    availableBalance: available.balance,
     month: monthKey(now),
     thisMonth: {
       income: thisIncome.total,
@@ -234,12 +240,13 @@ export const simulateWhatIf = async (req, res) => {
     }
 
     const now = new Date();
-    const [income, expenses, cats, sources, averages] = await Promise.all([
+    const [income, expenses, cats, sources, averages, settings] = await Promise.all([
       analytics.getMonthlyIncome(userId),
       analytics.getMonthlyExpenses(userId),
       analytics.getCategoryBreakdown(userId, startOfMonth(now), endOfMonth(now)),
       analytics.getIncomeBreakdown(userId, startOfMonth(now), endOfMonth(now)),
       analytics.getHistoricalAverages(userId),
+      analytics.getMoneySettings(userId),
     ]);
 
     const list = type === "expense" ? EXPENSE_CATEGORIES : INCOME_SOURCES;
@@ -290,7 +297,7 @@ export const simulateWhatIf = async (req, res) => {
     const explanation = await explainOrFallback(
       `Explain this what-if simulation result to the user. Use the exact numbers.
 Return JSON: {"title": "short title", "summary": "2-3 sentences", "recommendation": "one practical tip"}`,
-      result,
+      { ...result, currency: settings.currency },
       fallback
     );
 
@@ -332,7 +339,7 @@ export const generateMonthlyRecap = async (req, res) => {
     const refresh = req.query.refresh === "1";
 
     const build = async () => {
-      const [income, expenses, categories, budgetPerf, leaksData, goals, health] = await Promise.all([
+      const [income, expenses, categories, budgetPerf, leaksData, goals, health, settings] = await Promise.all([
         analytics.getMonthlyIncome(userId, start),
         analytics.getMonthlyExpenses(userId, start),
         analytics.getCategoryBreakdown(userId, start, end),
@@ -340,6 +347,7 @@ export const generateMonthlyRecap = async (req, res) => {
         analytics.getAnomaliesAndLeaks(userId),
         analytics.getSavingsGoalProjections(userId),
         analytics.getHealthScore(userId, start),
+        analytics.getMoneySettings(userId),
       ]);
 
       if (!income && !expenses) {
@@ -351,6 +359,7 @@ export const generateMonthlyRecap = async (req, res) => {
       const top = categories[0] || null;
 
       const recapData = {
+        currency: settings.currency,
         month: key,
         income,
         expenses,

@@ -24,8 +24,8 @@ export const getDashboardSummary = async (req, res) => {
     const [
       income,
       expenses,
-      allIncome,
-      allExpenses,
+      available,
+      goalReserve,
       incomeSources,
       categories,
       budgetPerf,
@@ -40,8 +40,8 @@ export const getDashboardSummary = async (req, res) => {
     ] = await Promise.all([
       analytics.sumIncome(userId, start, end),
       analytics.sumExpenses(userId, start, end),
-      analytics.sumIncome(userId),
-      analytics.sumExpenses(userId),
+      analytics.getAvailableBalance(userId),
+      analytics.getGoalReserve(userId),
       analytics.getIncomeBreakdown(userId, start, end),
       analytics.getCategoryBreakdown(userId, start, end),
       analytics.getBudgetPerformance(userId, key),
@@ -78,7 +78,10 @@ export const getDashboardSummary = async (req, res) => {
       data: {
         month: key,
         range,
-        balance: round2(allIncome.total - allExpenses.total),
+        // Available balance = opening balance + all income - all expenses
+        balance: available.balance,
+        openingBalance: available.openingBalance,
+        goalReserve,
         monthlyIncome: income.total,
         incomeCount: income.count,
         incomeSources: incomeSources.length,

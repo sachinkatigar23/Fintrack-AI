@@ -176,7 +176,7 @@ export default function CollectionPage({
             icon={icon}
             title={`No ${plural} found`}
             text={`You haven't set up any ${plural} yet. Add one to get started.`}
-            actionLabel={`Create your first ${plural}`}
+            actionLabel={`Create your first ${singular.toLowerCase()}`}
             onAction={openNew}
           />
         </div>

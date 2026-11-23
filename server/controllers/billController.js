@@ -2,6 +2,7 @@ import Bill from "../models/Bill.js";
 import Expense from "../models/Expense.js";
 import { EXPENSE_CATEGORIES } from "../utils/constants.js";
 import { checkBudgetThresholds } from "../services/notificationService.js";
+import { revertBillPayment } from "../services/billService.js";
 
 const pick = (body) => {
   const allowed = ["name", "amount", "dueDate", "category", "reminderDays", "status"];
@@ -79,11 +80,7 @@ export const payBill = async (req, res) => {
 export const unpayBill = async (req, res) => {
   const bill = await Bill.findOne({ _id: req.params.id, user: req.user.userId });
   if (!bill) return res.status(404).json({ success: false, message: "Bill not found" });
-  if (bill.expense) await Expense.deleteOne({ _id: bill.expense, user: req.user.userId });
-  bill.status = "pending";
-  bill.paidAt = undefined;
-  bill.expense = undefined;
-  await bill.save();
+  await revertBillPayment(bill, req.user.userId, { deleteExpense: true });
   return res.json({ success: true, message: "Bill marked as unpaid", data: { record: bill } });
 };
 
