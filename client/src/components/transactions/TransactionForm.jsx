@@ -55,7 +55,16 @@ const blank = (type) => ({
  * props: open, onClose, type ("expense"|"income"), lockType, record (when editing; without _id it pre-fills a new one),
  *        onSaved(record, type), autoVoice (start Quick add listening when opened)
  */
-export default function TransactionForm({ open, onClose, type: initialType = "expense", lockType = false, record, onSaved, autoVoice = false }) {
+export default function TransactionForm({
+  open,
+  onClose,
+  type: initialType = "expense",
+  lockType = false,
+  record,
+  onSaved,
+  autoVoice = false,
+  focusQuickAdd = false,
+}) {
   const [type, setType] = useState(initialType);
   const [receiptUrl, setReceiptUrl] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -360,6 +369,7 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
           <div style={lockType ? { marginTop: 22 } : undefined}>
             <QuickAddBar
               autoVoice={autoVoice}
+              autoFocus={focusQuickAdd}
               onItems={onQuickItems}
               placeholder={`Quick add · ${QUICK_HINTS[type][hint % QUICK_HINTS[type].length]}`}
             />

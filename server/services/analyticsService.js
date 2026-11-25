@@ -465,28 +465,3 @@ export const getBudgetRecommendations = async (userId) => {
     shareOfIncome: income ? round2((avg.average / income) * 100) : null,
   }));
 };
-
-// ───────── Logging streak ─────────
-// Consecutive days (ending today or yesterday) with at least one record
-export const getLoggingStreak = async (userId) => {
-  const since = addDays(startOfDay(), -60);
-  const tz = process.env.TZ || "Asia/Kolkata";
-  const project = [
-    { $match: { user: oid(userId), createdAt: { $gte: since } } },
-    { $project: { d: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: tz } } } },
-  ];
-  const [a, b] = await Promise.all([Expense.aggregate(project), Income.aggregate(project)]);
-  const days = new Set([...a, ...b].map((r) => r.d));
-  const fmt = (d) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-  let cursor = startOfDay();
-  if (!days.has(fmt(cursor))) cursor = addDays(cursor, -1);
-  let streak = 0;
-  while (days.has(fmt(cursor))) {
-    streak += 1;
-    cursor = addDays(cursor, -1);
-  }
-  const last7 = Array.from({ length: 7 }, (_, i) => days.has(fmt(addDays(startOfDay(), i - 6))));
-  return { days: streak, last7 };
-};

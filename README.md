@@ -210,6 +210,14 @@ All money figures are calculated on the server from your own records (`server/se
 - Monthly, quarterly and yearly schedules remember the day of the month they started on (the anchor day). Each payment lands on that day, or on the last day of a shorter month: Jan 31 → Feb 28 → Mar 31. A yearly payment on Feb 29 falls on Feb 28 in other years.
 - "After N payments" sets the end date to the date of the Nth payment. When the next payment would be after the end date, the rule finishes by itself and you get one notification.
 
+**Logging streak**
+- A *logged day* is a calendar day (India time) on which you **created** at least one income or expense yourself: a manual add, quick add / voice, a receipt scan or paying a bill.
+- It counts by **when you logged it**, not by the transaction date (adding last week's coffee today counts for today).
+- Records the scheduler creates from recurring rules don't count (`createdBy: "system"`; older ones are recognised by their "Added automatically" note).
+- *Current* = logged days in a row ending today. If today isn't logged yet, it counts up to yesterday – the streak is still alive but **at risk**.
+- *Status*: **active** (today logged), **at risk** (yesterday logged, today not yet), **broken** (last logged day before yesterday – current is 0), **new** (never logged).
+- *Best* = the longest run in the last 365 days. Milestones at 3, 7, 14, 30, 60 and 100 days each send one notification ("🔥 7-day logging streak!").
+
 **Quick add**
 - Text is split on "and", "aur", commas and semicolons. Amounts can be digits (also Devanagari), "1.5k", "2 lakh" or words ("do sau" = 200, "dedh hazaar" = 1,500). "kal" means yesterday; a date is never in the future.
 - Keywords pick the category (e.g. petrol → Transport, chai → Food & Dining) and words like "mila", "received", "salary" mark income. When the rules miss something and AI is configured, the AI fills only the missing fields. Nothing is saved until you press Add.

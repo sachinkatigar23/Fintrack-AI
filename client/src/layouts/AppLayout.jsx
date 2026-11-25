@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import Topbar from "../components/layout/Topbar.jsx";
 import Sidebar from "../components/layout/Sidebar.jsx";
-import { dashboardApi } from "../services/financeApi.js";
+import { streakApi } from "../services/financeApi.js";
 
 // Application shell: top bar + sidebar + scrollable page area
 export default function AppLayout() {
@@ -11,7 +11,7 @@ export default function AppLayout() {
   const [streak, setStreak] = useState(null);
 
   const loadStreak = useCallback(() => {
-    dashboardApi.get({ range: 7 }).then((d) => setStreak(d.streak)).catch(() => {});
+    streakApi.get().then(setStreak).catch(() => {});
   }, []);
 
   useEffect(() => {

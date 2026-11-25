@@ -28,7 +28,7 @@ export const PAYMENT_METHODS = ["cash", "card", "upi", "bankTransfer", "other"];
 
 export const RECURRING_FREQUENCIES = ["daily", "weekly", "monthly", "quarterly", "yearly"];
 
-export const NOTIFICATION_TYPES = ["budget", "bill", "recurring", "goal", "ai", "system", "subscription", "planning"];
+export const NOTIFICATION_TYPES = ["budget", "bill", "recurring", "goal", "ai", "system", "subscription", "planning", "streak"];
 
 // Budget alert thresholds (percent of limit used)
 export const BUDGET_THRESHOLDS = [80, 100];

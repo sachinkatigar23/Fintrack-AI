@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { LayoutGrid, FileText, ArrowDownRight, ArrowUpRight, Clock, CreditCard, Bell, AlignLeft, Sun, LogOut, Shield, Gauge, Repeat } from "../common/icons.js";
 import { useAuth } from "../../hooks/useAuth.js";
+import StreakCard from "./StreakCard.jsx";
 
 const SECTIONS = [
   {
@@ -35,8 +36,6 @@ const SECTIONS = [
 export default function Sidebar({ streak }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const days = streak?.days || 0;
-  const last7 = streak?.last7 || [false, false, false, false, false, false, false];
 
   const sections = user?.role === "admin"
     ? [...SECTIONS, { title: "ADMIN", links: [["/admin", "Admin panel", Shield]] }]
@@ -59,15 +58,7 @@ export default function Sidebar({ streak }) {
       </div>
 
       <div className="rail-ft">
-        <div className="streak">
-          <b>{days}-day logging streak</b>
-          <p>{days ? "Keep adding your expenses." : "Add a record today to start."}</p>
-          <div className="dots">
-            {last7.map((on, i) => (
-              <i key={i} className={on ? "f" : ""} />
-            ))}
-          </div>
-        </div>
+        <StreakCard streak={streak} />
         <button
           type="button"
           className="nav mt-3 w-full"

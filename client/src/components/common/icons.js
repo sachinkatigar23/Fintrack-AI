@@ -48,6 +48,7 @@ export const Plus = pick("Plus");
 export const Printer = pick("Printer");
 export const Receipt = pick("Receipt");
 export const Repeat = pick("Repeat", "RefreshCw");
+export const Flame = pick("Flame", "Zap");
 export const Gauge = pick("Gauge", "Activity");
 export const Mic = pick("Mic");
 export const MicOff = pick("MicOff", "Mic");

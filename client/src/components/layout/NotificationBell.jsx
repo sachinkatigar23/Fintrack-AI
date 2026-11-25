@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Clock, CreditCard, AlignLeft, Sparkles, Info, Receipt, Repeat, Gauge } from "../common/icons.js";
+import { Bell, Clock, CreditCard, AlignLeft, Sparkles, Info, Receipt, Repeat, Gauge, Flame } from "../common/icons.js";
 import { notificationApi } from "../../services/financeApi.js";
 import { timeAgo } from "../../utils/format.js";
 
@@ -13,6 +13,7 @@ const STYLE = {
   system: [Info, "#A99BFF", "var(--iris-soft)"],
   subscription: [Repeat, "var(--sky)", "var(--sky-soft)"],
   planning: [Gauge, "var(--mint)", "var(--mint-soft)"],
+  streak: [Flame, "#FF8A3D", "rgba(255,138,61,.14)"],
 };
 
 export default function NotificationBell() {

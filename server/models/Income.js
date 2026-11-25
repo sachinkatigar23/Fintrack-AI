@@ -14,6 +14,8 @@ const incomeSchema = new mongoose.Schema(
     date: { type: Date, required: true, default: Date.now },
     notes: { type: String, trim: true, maxlength: 500, default: "" },
     isRecurring: { type: Boolean, default: false },
+    // "user" = logged by the person (counts for the logging streak); "system" = created by the scheduler
+    createdBy: { type: String, enum: ["user", "system"], default: "user" },
   },
   { timestamps: true }
 );

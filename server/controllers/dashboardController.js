@@ -1,6 +1,7 @@
 import Expense from "../models/Expense.js";
 import Income from "../models/Income.js";
 import * as analytics from "../services/analyticsService.js";
+import { getStreak } from "../services/streakService.js";
 import { monthRange, addMonths, startOfDay } from "../utils/dates.js";
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -49,7 +50,7 @@ export const getDashboardSummary = async (req, res) => {
       analytics.getHealthScore(userId, start),
       analytics.getDailySeries(userId, range, start),
       analytics.getDailySeries(userId, 56, start),
-      analytics.getLoggingStreak(userId),
+      getStreak(userId),
       Income.find({ user: userId }).sort({ date: -1, createdAt: -1 }).limit(5),
       Expense.find({ user: userId }).sort({ date: -1, createdAt: -1 }).limit(5),
       analytics.sumExpenses(userId, addMonths(start, -1), new Date(start.getTime() - 1)),

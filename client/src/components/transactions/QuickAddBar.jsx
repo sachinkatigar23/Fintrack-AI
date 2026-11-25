@@ -20,7 +20,7 @@ const readLang = () => {
  * Uses the browser's Web Speech API (Chrome / Edge); the text box always works.
  * props: autoVoice (start listening when shown), onItems(items, source)
  */
-export default function QuickAddBar({ autoVoice = false, onItems, placeholder = "Quick add · e.g. 250 petrol kal upi" }) {
+export default function QuickAddBar({ autoVoice = false, autoFocus = false, onItems, placeholder = "Quick add · e.g. 250 petrol kal upi" }) {
   const SR = getSR();
   const [text, setText] = useState("");
   const [interim, setInterim] = useState("");
@@ -104,6 +104,14 @@ export default function QuickAddBar({ autoVoice = false, onItems, placeholder = 
   useEffect(() => {
     if (!autoVoice) return undefined;
     const t = setTimeout(() => (SR ? start() : inputRef.current?.focus()), 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Opened from "Log now": put the cursor in the quick-add box
+  useEffect(() => {
+    if (!autoFocus || autoVoice) return undefined;
+    const t = setTimeout(() => inputRef.current?.focus(), 200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

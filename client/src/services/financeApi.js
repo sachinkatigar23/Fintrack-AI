@@ -98,3 +98,7 @@ export const subscriptionApi = {
   track: (key) => api.post("/subscriptions/track", { key }).then((r) => r.data),
   remind: (key, remind) => api.post("/subscriptions/remind", { key, remind }).then((r) => r.data),
 };
+
+export const streakApi = {
+  get: () => api.get("/streak").then(data),
+};

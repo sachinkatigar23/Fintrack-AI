@@ -68,6 +68,8 @@ export const processRecurringTransactions = async (userId) => {
           date: item.nextDate,
           paymentMethod: item.paymentMethod,
           isRecurring: true,
+          // made by the scheduler, not logged by the person (doesn't count for the streak)
+          createdBy: "system",
           notes,
         };
         if (item.type === "expense") await Expense.create({ ...base, category: classification });
