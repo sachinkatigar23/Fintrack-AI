@@ -56,6 +56,24 @@ You should see `✅ MongoDB Connected` and `🚀 Server running on port 5000`.
 
 ---
 
+### Email setup (Gmail App Password)
+
+Email is used for the sign-up verification code, the welcome email, new sign-in alerts, password-change notices, password reset links and budget / bill alerts.
+
+1. Use a Gmail account and turn on **2-Step Verification** (Google Account → Security).
+2. Open **Google Account → Security → App passwords** (search "App passwords"), create one named "FinTrack AI" and copy the 16-character password.
+3. Add these two lines to `server/.env` (your address and the app password, without spaces):
+
+   ```
+   EMAIL_USER=your.address@gmail.com
+   EMAIL_PASS=your16charapppassword
+   ```
+4. Restart the server.
+
+Without these lines everything still works: emails are printed in the **server terminal** instead, so during development you can read a new account's verification code there. The verify page then says "Email isn't configured on the server – the code is printed in the server terminal".
+
+**New accounts** must enter a 6-digit code before they can sign in. The code is valid for 10 minutes and allows 5 tries; a new code can be requested once a minute (at most 5 per hour). Accounts created before this change, and the demo accounts, are already verified. Turn sign-in alerts or budget / bill emails off in **Profile → Notifications & security** (security emails are always sent).
+
 ## 3. Run the frontend (client)
 
 Open a **second** terminal:
@@ -144,7 +162,7 @@ fintrack-ai/
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/register`, `/auth/login`, `/auth/logout`, `/auth/refresh`, `GET /auth/me`, `POST /auth/forgot-password`, `/auth/reset-password`, `PUT /auth/change-password` |
+| Auth | `POST /auth/register` (sends a 6-digit code, no tokens), `POST /auth/verify-email` `{ email, otp }` (signs in), `POST /auth/resend-otp` `{ email }`, `/auth/login`, `/auth/logout`, `/auth/refresh`, `GET /auth/me`, `POST /auth/forgot-password`, `/auth/reset-password`, `PUT /auth/change-password` |
 | Expenses | `GET/POST /expenses`, `PUT/DELETE /expenses/:id`, `POST /expenses/scan-receipt`, `POST /expenses/:id/receipt` |
 | Income | `GET/POST /income`, `PUT/DELETE /income/:id` |
 | Ledger | `GET /transactions`, `GET /transactions/export` |
@@ -153,7 +171,8 @@ fintrack-ai/
 | Subscriptions | `GET /subscriptions`, `POST /subscriptions/dismiss`, `/subscriptions/restore`, `/subscriptions/track` `{ key }`, `POST /subscriptions/remind` `{ key, remind }` |
 | Insights | `GET /dashboard`, `GET /analytics`, `/analytics/anomalies`, `/analytics/goals`, `/analytics/budgets/recommend`, `POST /analytics/budgets/apply` |
 | AI | `GET /ai/brief`, `GET /ai/recap`, `POST /ai/chat`, `POST /ai/simulate`, `POST /ai/parse-transaction` `{ text }` (quick add, nothing is saved), `GET /ai/status` |
-| Other | `/notifications`, `/profile` (incl. `openingBalance`, `salaryDay`, `safetyBuffer`), `/admin/*` (admin role only) |
+| Streak | `GET /streak` → `{ current, best, status, loggedToday, last7, nextMilestone, daysToNext }` |
+| Other | `/notifications`, `/profile` (incl. `openingBalance`, `salaryDay`, `safetyBuffer`, `loginAlerts`, `emailAlerts`), `/admin/*` (admin role only) |
 
 ### Tests
 
@@ -162,7 +181,7 @@ cd server
 npm test
 ```
 
-Uses Node's built-in test runner (`node:test`) for the pure calculation functions: schedules, Safe to spend, "Can I afford this?", subscription detection and the quick-add parser.
+Uses Node's built-in test runner (`node:test`) for the pure functions: schedules, Safe to spend, "Can I afford this?", subscription detection, the quick-add parser (including spoken dates), the logging streak, verification codes and the sign-in device summary.
 
 ---
 
@@ -219,6 +238,7 @@ All money figures are calculated on the server from your own records (`server/se
 - *Best* = the longest run in the last 365 days. Milestones at 3, 7, 14, 30, 60 and 100 days each send one notification ("🔥 7-day logging streak!").
 
 **Quick add**
+- Dates can be said in English, Hinglish or Hindi: "kal"/"कल" (yesterday), "parso", "3 din pehle", "last monday", "somvar", "12 nov", "12/11", "5 tarikh". A date is never in the future: "tomorrow" or "agle hafte" keeps today and shows a warning. The form shows what was understood (with Undo) and briefly highlights the fields it filled.
 - Text is split on "and", "aur", commas and semicolons. Amounts can be digits (also Devanagari), "1.5k", "2 lakh" or words ("do sau" = 200, "dedh hazaar" = 1,500). "kal" means yesterday; a date is never in the future.
 - Keywords pick the category (e.g. petrol → Transport, chai → Food & Dining) and words like "mila", "received", "salary" mark income. When the rules miss something and AI is configured, the AI fills only the missing fields. Nothing is saved until you press Add.
 
@@ -228,6 +248,7 @@ All money figures are calculated on the server from your own records (`server/se
 
 | Problem | Fix |
 |---|---|
+| Sign-up accepts any email domain / server log has no MX check | Node couldn't reach your DNS server (common with a VPN or proxy that uses `127.0.0.1`); the check then lets the address through. Add `DNS_SERVERS=1.1.1.1,8.8.8.8` (or your own DNS servers) to `server/.env` and restart. |
 | `MongoDB Connection Failed ... ECONNREFUSED` | Start the **MongoDB Server** service (see section 1). |
 | "Cannot reach the server" toast | The backend isn't running - run `npm run dev` inside `server`. |
 | Logged out after every refresh | Open the app at `http://localhost:5173` (not 127.0.0.1) and check `CLIENT_URL` in `server/.env`. |

@@ -58,6 +58,9 @@ const run = async () => {
     currency: "INR",
     darkModePref: true,
     emailVerified: true,
+    // demo addresses aren't real inboxes: no sign-in alerts or budget / bill emails
+    loginAlerts: false,
+    emailAlerts: false,
     // Money settings (Safe to spend)
     openingBalance: 25000,
     salaryDay: 1,
@@ -70,6 +73,8 @@ const run = async () => {
     role: "admin",
     darkModePref: true,
     emailVerified: true,
+    loginAlerts: false,
+    emailAlerts: false,
   });
 
   const user = demo._id;

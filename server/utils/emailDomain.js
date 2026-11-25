@@ -17,7 +17,23 @@ export const judgeMx = (records, errorCode) => {
   return usable.length ? { ok: true, checked: true } : { ok: false, checked: true };
 };
 
-export const checkEmailDomain = async (email, { timeoutMs = 4000, resolveMx = dns.promises.resolveMx } = {}) => {
+// Optional: DNS_SERVERS=1.1.1.1,8.8.8.8 in .env when Node can't reach the system DNS server
+// (e.g. a local VPN / proxy on 127.0.0.1). Without it the system's DNS settings are used.
+let resolver = null;
+const defaultResolveMx = (domain) => {
+  const servers = String(process.env.DNS_SERVERS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!servers.length) return dns.promises.resolveMx(domain);
+  if (!resolver) {
+    resolver = new dns.promises.Resolver({ timeout: 3000, tries: 1 });
+    resolver.setServers(servers);
+  }
+  return resolver.resolveMx(domain);
+};
+
+export const checkEmailDomain = async (email, { timeoutMs = 4000, resolveMx = defaultResolveMx } = {}) => {
   const domain = String(email || "").split("@")[1]?.trim().toLowerCase();
   if (!domain) return { ok: false, checked: true };
   try {
