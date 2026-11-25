@@ -20,7 +20,7 @@ const readLang = () => {
  * Uses the browser's Web Speech API (Chrome / Edge); the text box always works.
  * props: autoVoice (start listening when shown), onItems(items, source)
  */
-export default function QuickAddBar({ autoVoice = false, onItems }) {
+export default function QuickAddBar({ autoVoice = false, onItems, placeholder = "Quick add · e.g. 250 petrol kal upi" }) {
   const SR = getSR();
   const [text, setText] = useState("");
   const [interim, setInterim] = useState("");
@@ -131,7 +131,7 @@ export default function QuickAddBar({ autoVoice = false, onItems }) {
           ref={inputRef}
           className="qa-input"
           maxLength={300}
-          placeholder="Quick add · e.g. 250 petrol kal upi"
+          placeholder={placeholder}
           value={listening && interim ? interim : text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {

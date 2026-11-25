@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { Paperclip, Check } from "../common/icons.js";
 import Modal from "../common/Modal.jsx";
 import QuickAddBar from "./QuickAddBar.jsx";
+import { guessClassification } from "../../utils/keywords.js";
 import { expenseApi, incomeApi } from "../../services/financeApi.js";
 import { EXPENSE_CATEGORIES, INCOME_SOURCES, PAYMENT_METHODS, paymentLabel } from "../../utils/categories.js";
 import { toInputDate, friendlyDate } from "../../utils/format.js";
@@ -24,7 +25,21 @@ const schema = z.object({
   notes: z.string().max(500, "Notes are too long").optional(),
 });
 
-const HINTS = ["e.g. Electricity bill", "e.g. Grocery shopping", "e.g. Auto rickshaw fare", "e.g. Movie tickets", "e.g. Coffee with friends"];
+// Rotating title placeholders, per type
+const HINTS = {
+  expense: ["e.g. Electricity bill", "e.g. Grocery shopping", "e.g. Auto rickshaw fare", "e.g. Movie tickets", "e.g. Coffee with friends"],
+  income: [
+    "e.g. Monthly salary",
+    "e.g. Freelance website project",
+    "e.g. Rent from tenant",
+    "e.g. Diwali bonus",
+    "e.g. Interest on FD",
+    "e.g. Pocket money from parents",
+    "e.g. Cashback / refund",
+  ],
+};
+const QUICK_HINTS = { expense: ["e.g. 250 petrol kal upi"], income: ["e.g. 35000 salary mila", "e.g. 5k freelance payment kal"] };
+const NOTES_HINTS = { expense: "e.g. Paid with friends, split later", income: "e.g. October salary credited" };
 
 const blank = (type) => ({
   title: "",
@@ -55,6 +70,8 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
   const [understood, setUnderstood] = useState(null);
   const [glow, setGlow] = useState([]);
   const glowTimer = useRef(null);
+  // Smart category / source: the value guessed from the title (null = chosen by hand or default)
+  const [autoGuess, setAutoGuess] = useState(null);
 
   const {
     register,
@@ -63,7 +80,7 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
     setValue,
     getValues,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm({ resolver: zodResolver(schema), defaultValues: blank(initialType) });
 
   // Fill the form whenever it opens
@@ -74,6 +91,7 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
     setQueue([]);
     setUnderstood(null);
     setGlow([]);
+    setAutoGuess(null);
     pendingRef.current = null;
     setReceiptUrl(record?.receiptUrl || "");
     reset(
@@ -93,16 +111,28 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
   // Rotating placeholder hints in the title box
   useEffect(() => {
     if (!open) return;
-    const t = setInterval(() => setHint((h) => (h + 1) % HINTS.length), 2500);
+    const t = setInterval(() => setHint((h) => h + 1), 2500);
     return () => clearInterval(t);
   }, [open]);
 
   const switchType = (t) => {
     if (lockType || editing) return;
     setType(t);
+    setAutoGuess(null);
     setValue("classification", t === "income" ? "Salary" : "Food & Dining");
     setValue("paymentMethod", t === "income" ? "bankTransfer" : "upi");
   };
+
+  // Guess the category / source while a NEW record's title is typed, unless the user picked one by hand
+  const titleValue = watch("title");
+  const classificationValue = watch("classification");
+  useEffect(() => {
+    if (!open || editing || dirtyFields.classification) return;
+    const guess = guessClassification(titleValue, type);
+    if (guess && guess !== getValues("classification")) setValue("classification", guess);
+    setAutoGuess(guess);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titleValue, type, open, editing, dirtyFields.classification]);
 
   // ───────── Quick add ─────────
   const flash = (names) => {
@@ -328,7 +358,11 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
         <>
           {/* no type chips when locked: leave room for the close button */}
           <div style={lockType ? { marginTop: 22 } : undefined}>
-            <QuickAddBar autoVoice={autoVoice} onItems={onQuickItems} />
+            <QuickAddBar
+              autoVoice={autoVoice}
+              onItems={onQuickItems}
+              placeholder={`Quick add · ${QUICK_HINTS[type][hint % QUICK_HINTS[type].length]}`}
+            />
           </div>
           {understood && (
             <div className="qa-understood">
@@ -379,7 +413,7 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
         <div className="form-grid">
           <label className="field full">
             <span>Title</span>
-            <input className={`input${errors.title ? " err" : ""}${glowClass("title")}`} placeholder={HINTS[hint]} {...register("title")} />
+            <input className={`input${errors.title ? " err" : ""}${glowClass("title")}`} placeholder={HINTS[type][hint % HINTS[type].length]} {...register("title")} />
             {errors.title && <small className="ferr">{errors.title.message}</small>}
           </label>
 
@@ -403,7 +437,12 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
           </label>
 
           <label className="field">
-            <span>{type === "income" ? "Source" : "Category"}</span>
+            <span className="flabel">
+              {type === "income" ? "Source" : "Category"}
+              {autoGuess && autoGuess === classificationValue && !dirtyFields.classification && (
+                <em className="auto-hint" title="Guessed from the title – change it if it's wrong">auto</em>
+              )}
+            </span>
             <select className={`select${glowClass("classification")}`} {...register("classification")}>
               {options.map((o) => (
                 <option key={o} value={o}>
@@ -428,7 +467,7 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
             <span className="flabel">
               Notes<em>(optional)</em>
             </span>
-            <textarea className="textarea" {...register("notes")} />
+            <textarea className="textarea" placeholder={NOTES_HINTS[type]} {...register("notes")} />
             {errors.notes && <small className="ferr">{errors.notes.message}</small>}
           </label>
         </div>

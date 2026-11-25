@@ -24,7 +24,7 @@ export const EXPENSE_KEYWORDS = {
 };
 
 export const INCOME_KEYWORDS = {
-  Rental: ["rent received", "kiraya mila", "rent from tenant", "किराया मिला"],
+  Rental: ["rent received", "kiraya mila", "rent from tenant", "किराया मिला", "rent", "kiraya", "किराया"],
   Salary: ["salary", "bonus", "सैलरी", "तनख्वाह"],
   Freelance: ["freelance", "project", "client"],
   Gift: ["gift", "shagun", "pocket money", "शगुन"],

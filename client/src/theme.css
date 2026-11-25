@@ -756,3 +756,9 @@ tbody tr:hover{background:rgba(124,107,255,.055);box-shadow:inset 3px 0 0 var(--
   .qa-understood{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-4px 0 var(--s3);font-size:12.5px}
   .qa-understood-text{color:var(--text);font-weight:500}
 }
+@layer components {
+  /* "auto" hint next to a guessed category / source */
+  .flabel .auto-hint{font-style:normal;text-transform:uppercase;letter-spacing:.08em;font-size:9px;font-weight:700;margin-left:6px;
+    padding:1px 6px;border-radius:var(--r-pill);background:var(--iris-soft);color:#A99BFF;border:1px solid rgba(124,107,255,.3)}
+  html.light .flabel .auto-hint{color:#5B47E0}
+}
