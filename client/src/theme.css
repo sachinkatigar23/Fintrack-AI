@@ -809,3 +809,18 @@ tbody tr:hover{background:rgba(124,107,255,.055);box-shadow:inset 3px 0 0 var(--
     .streak-mini{display:flex}
   }
 }
+@layer components {
+  /* ── Verify email (6-digit code) ── */
+  .otp-email{color:inherit;font-weight:700;word-break:break-all}
+  .otp-boxes{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  .otp-box{width:100%;min-width:0;height:58px;text-align:center;font-family:"JetBrains Mono",monospace;font-size:24px;font-weight:600;
+    border-radius:12px;border:1px solid var(--line-hi);background:rgba(8,11,20,.45);color:var(--text);outline:none;transition:var(--dur) var(--ease)}
+  .otp-box:focus{border-color:var(--iris);box-shadow:0 0 0 4px rgba(124,107,255,.18)}
+  .otp-box.err{border-color:rgba(255,107,122,.6)}
+  .otp-timer{text-align:center;font-size:12.5px;color:var(--text-2);margin-top:14px;font-family:"JetBrains Mono",monospace}
+  .otp-timer.expired{color:var(--coral)}
+  .otp-actions{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px;font-size:13px}
+  .otp-actions button.link:disabled{color:var(--text-3);cursor:not-allowed;text-decoration:none}
+  html.light .otp-box{background:#F7F9FC;border-color:#CDD6E4;color:#0F172A}
+  @media (max-width:420px){.otp-boxes{gap:6px}.otp-box{height:50px;font-size:20px}}
+}

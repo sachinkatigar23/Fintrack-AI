@@ -39,9 +39,16 @@ const Register = () => {
     }
 
     try {
-      await register(name, email, password);
-      toast.success("Account created successfully!");
-      navigate("/dashboard");
+      const result = await register(name, email, password);
+      if (result?.needsVerification) {
+        toast.success("We've sent a 6-digit code to your email");
+        navigate(`/verify-email?email=${encodeURIComponent(result.email || email)}`, {
+          state: { emailEnabled: result.emailEnabled, expiresIn: result.expiresIn, retryAfter: result.retryAfter },
+        });
+      } else {
+        toast.success("Account created successfully!");
+        navigate("/dashboard");
+      }
     } catch (error) {
       toast.error(errorMessage(error, "Registration failed"));
     }

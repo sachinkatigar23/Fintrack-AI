@@ -54,7 +54,7 @@ export const listUsers = async (req, res) => {
     ? { $or: [{ name: { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }, { email: { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }] }
     : {};
   const users = await User.find(filter)
-    .select("name email role currency isBlocked lastLoginAt createdAt")
+    .select("name email role currency isBlocked emailVerified lastLoginAt createdAt")
     .sort({ createdAt: -1 });
 
   // Record counts per user (activity, not amounts)

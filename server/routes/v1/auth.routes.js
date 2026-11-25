@@ -9,6 +9,8 @@ import {
   forgotPassword,
   resetPassword,
   changePassword,
+  verifyEmail,
+  resendOtp,
 } from "../../controllers/authController.js";
 
 import {
@@ -17,6 +19,8 @@ import {
   forgotPasswordValidator,
   resetPasswordValidator,
   changePasswordValidator,
+  verifyEmailValidator,
+  resendOtpValidator,
 } from "../../validators/authValidator.js";
 
 import { validate } from "../../middleware/validate.js";
@@ -42,6 +46,10 @@ router.post(
   validate,
   login
 );
+
+// Email verification (6-digit code)
+router.post("/verify-email", authLimiter, verifyEmailValidator, validate, verifyEmail);
+router.post("/resend-otp", authLimiter, resendOtpValidator, validate, resendOtp);
 
 // Logout
 router.post("/logout", logout);

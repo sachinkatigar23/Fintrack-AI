@@ -16,6 +16,8 @@ router.put(
   body("openingBalance").optional({ values: "falsy" }).isFloat({ min: -100000000, max: 100000000 }).withMessage("Starting balance must be a number").toFloat(),
   body("salaryDay").optional({ values: "falsy" }).isInt({ min: 1, max: 31 }).withMessage("Salary day must be between 1 and 31").toInt(),
   body("safetyBuffer").optional({ values: "falsy" }).isFloat({ min: 0, max: 100000000 }).withMessage("Safety buffer can't be negative").toFloat(),
+  body("loginAlerts").optional().isBoolean().withMessage("loginAlerts must be true or false").toBoolean(),
+  body("emailAlerts").optional().isBoolean().withMessage("emailAlerts must be true or false").toBoolean(),
   validate,
   updateProfile
 );

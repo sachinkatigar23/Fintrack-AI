@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Camera, Moon, Sun } from "../components/common/icons.js";
+import { Camera, Moon, Sun, Shield, Check } from "../components/common/icons.js";
 import toast from "react-hot-toast";
 import PageHeader from "../components/common/PageHeader.jsx";
 import PasswordInput from "../components/auth/PasswordInput.jsx";
@@ -35,6 +35,21 @@ export default function Profile() {
     safetyBuffer: String(user?.safetyBuffer ?? 0),
   });
   const [moneySaving, setMoneySaving] = useState(false);
+  const [prefSaving, setPrefSaving] = useState("");
+
+  // Notifications & security: each switch saves right away
+  const savePref = async (key, value) => {
+    setPrefSaving(key);
+    try {
+      const d = await profileApi.update({ [key]: value });
+      updateUser(d.user);
+      toast.success(value ? "Turned on" : "Turned off");
+    } catch (err) {
+      toast.error(errorMessage(err, "Could not save"));
+    } finally {
+      setPrefSaving("");
+    }
+  };
 
   // /profile#money-settings (linked from Safe to spend) scrolls to the card
   useEffect(() => {
@@ -158,6 +173,46 @@ export default function Profile() {
               </button>
             </div>
           </form>
+        </div>
+
+        <div className="card card-pad">
+          <h3 style={{ fontSize: 15, fontWeight: 600 }} className="flex items-center gap-2">
+            <Shield style={{ width: 16, height: 16 }} /> Notifications &amp; security
+          </h3>
+          <p className="section-sub" style={{ marginBottom: 18 }}>
+            {user?.emailVerified === false ? (
+              <span className="gold">Your email isn't verified yet.</span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Check style={{ width: 13, height: 13, color: "var(--mint)" }} /> {user?.email} is verified.
+              </span>
+            )}
+          </p>
+          <div className="flex flex-col gap-4">
+            <label className="field checkline">
+              <input
+                type="checkbox"
+                checked={user?.loginAlerts !== false}
+                disabled={prefSaving === "loginAlerts"}
+                onChange={(e) => savePref("loginAlerts", e.target.checked)}
+              />
+              <span>Email me when someone signs in to my account</span>
+              <small className="faint fhelp">Includes the time, device and IP address of each new sign-in.</small>
+            </label>
+            <label className="field checkline">
+              <input
+                type="checkbox"
+                checked={user?.emailAlerts !== false}
+                disabled={prefSaving === "emailAlerts"}
+                onChange={(e) => savePref("emailAlerts", e.target.checked)}
+              />
+              <span>Email me budget and bill alerts</span>
+              <small className="faint fhelp">Budget exceeded and bill reminders. You still see them under the bell.</small>
+            </label>
+            <p className="faint" style={{ fontSize: 11.5, lineHeight: 1.5 }}>
+              Security emails – verification codes and "your password was changed" – are always sent.
+            </p>
+          </div>
         </div>
 
         <div className="card card-pad" id="money-settings" ref={moneyRef} style={{ scrollMarginTop: 16 }}>

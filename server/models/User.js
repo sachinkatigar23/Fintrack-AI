@@ -72,6 +72,25 @@ const userSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // ── Email verification (existing accounts count as verified; registration sets false) ──
+    emailVerified: {
+      type: Boolean,
+      default: true,
+    },
+    // Only the SHA-256 hash of the 6-digit code is stored
+    emailOtpHash: { type: String, select: false },
+    emailOtpExpires: { type: Date, select: false },
+    emailOtpAttempts: { type: Number, default: 0, select: false },
+    emailOtpSentAt: { type: Date, select: false },
+    emailOtpSendCount: { type: Number, default: 0, select: false },
+    emailOtpWindowStart: { type: Date, select: false },
+
+    // ── Notifications & security ──
+    // Email on each new sign-in
+    loginAlerts: { type: Boolean, default: true },
+    // Budget-exceeded and bill-reminder emails (security emails are always sent)
+    emailAlerts: { type: Boolean, default: true },
+
     lastLoginAt: {
       type: Date,
     },

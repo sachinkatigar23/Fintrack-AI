@@ -29,6 +29,16 @@ const Login = () => {
       // Go back to the page the user originally wanted, or the dashboard
       navigate(location.state?.from?.pathname || "/dashboard", { replace: true });
     } catch (error) {
+      const body = error.response?.data;
+      // Account not verified yet: a new code was sent - go and enter it
+      if (body?.code === "EMAIL_NOT_VERIFIED") {
+        toast(body.message, { icon: "✉️", duration: 6000 });
+        const info = body.data || {};
+        navigate(`/verify-email?email=${encodeURIComponent(info.email || email)}`, {
+          state: { emailEnabled: info.emailEnabled, expiresIn: info.expiresIn, retryAfter: info.retryAfter },
+        });
+        return;
+      }
       toast.error(errorMessage(error, "Invalid email or password"));
     }
   };

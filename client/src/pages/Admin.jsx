@@ -86,6 +86,7 @@ export default function Admin() {
                   <th>USER</th>
                   <th>ROLE</th>
                   <th>STATUS</th>
+                  <th>VERIFIED</th>
                   <th>RECORDS</th>
                   <th>JOINED</th>
                   <th style={{ textAlign: "right" }}>ACTIONS</th>
@@ -105,6 +106,9 @@ export default function Admin() {
                       </td>
                       <td>
                         <span className={`tag ${u.isBlocked ? "neg" : "pos"}`}>{u.isBlocked ? "BLOCKED" : "ACTIVE"}</span>
+                      </td>
+                      <td>
+                        <span className={`tag ${u.emailVerified === false ? "gold" : "pos"}`}>{u.emailVerified === false ? "UNVERIFIED" : "VERIFIED"}</span>
                       </td>
                       <td className="mono">{u.records}</td>
                       <td className="faint">{fmtDate(u.createdAt)}</td>

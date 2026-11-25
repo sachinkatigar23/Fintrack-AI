@@ -81,3 +81,20 @@ export const changePasswordValidator = [
     .isLength({ min: 8 })
     .withMessage("New password must be at least 8 characters"),
 ];
+const emailField = () =>
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required")
+    .isEmail()
+    .withMessage("Please provide a valid email address")
+    .normalizeEmail();
+
+// Verify email with the 6-digit code
+export const verifyEmailValidator = [
+  emailField(),
+  body("otp").trim().matches(/^\d{6}$/).withMessage("Enter the 6-digit code"),
+];
+
+// Request a new code
+export const resendOtpValidator = [emailField()];

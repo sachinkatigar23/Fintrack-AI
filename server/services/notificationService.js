@@ -47,8 +47,9 @@ export const checkBudgetThresholds = async (userId, date = new Date()) => {
 
         // Critical alert also goes by email (if email is configured)
         if (created && threshold >= 100) {
-          const user = await User.findById(userId).select("email name");
-          if (user) {
+          const user = await User.findById(userId).select("email name emailAlerts");
+          // emailAlerts off: the in-app notification is enough
+          if (user && user.emailAlerts !== false) {
             await sendEmail({
               to: user.email,
               subject: `FinTrack AI: ${b.name} budget exceeded`,
@@ -65,7 +66,7 @@ export const checkBudgetThresholds = async (userId, date = new Date()) => {
 // Scheduler job: remind users about bills that are due soon or overdue
 export const sendBillReminders = async () => {
   const today = startOfDay();
-  const bills = await Bill.find({ status: "pending", dueDate: { $lte: addDays(today, 30) } }).populate("user", "email name");
+  const bills = await Bill.find({ status: "pending", dueDate: { $lte: addDays(today, 30) } }).populate("user", "email name emailAlerts");
   let sent = 0;
 
   for (const bill of bills) {
@@ -88,6 +89,7 @@ export const sendBillReminders = async () => {
 
     if (created) {
       sent += 1;
+      if (bill.user.emailAlerts === false) continue;
       await sendEmail({
         to: bill.user.email,
         subject: `FinTrack AI reminder: ${title}`,

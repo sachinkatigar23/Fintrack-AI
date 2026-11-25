@@ -99,8 +99,11 @@ export const AuthProvider = ({ children }) => {
       const result =
         response.data?.data ?? response.data;
 
-      setAccessToken(result.accessToken);
-      setUser(result.user);
+      // New accounts verify their email first: no session yet, the page goes to /verify-email
+      if (!result.needsVerification && result.accessToken) {
+        setAccessToken(result.accessToken);
+        setUser(result.user);
+      }
 
       return result;
     } catch (err) {
@@ -112,6 +115,21 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Verify the email with the 6-digit code -> signed in like a login
+  const verifyEmail = async (email, otp) => {
+    const response = await api.post("/auth/verify-email", { email, otp });
+    const result = response.data?.data ?? response.data;
+    setAccessToken(result.accessToken);
+    setUser(result.user);
+    return result;
+  };
+
+  // Ask for a new code (the server answers neutrally; retryAfter when throttled)
+  const resendOtp = async (email) => {
+    const response = await api.post("/auth/resend-otp", { email });
+    return { message: response.data?.message, ...(response.data?.data || {}) };
   };
 
   // Logout
@@ -140,6 +158,8 @@ export const AuthProvider = ({ children }) => {
         error,
         login,
         register,
+        verifyEmail,
+        resendOtp,
         logout,
         updateUser,
       }}

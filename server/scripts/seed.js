@@ -57,6 +57,7 @@ const run = async () => {
     passwordHash: await hashPassword("Demo@1234"),
     currency: "INR",
     darkModePref: true,
+    emailVerified: true,
     // Money settings (Safe to spend)
     openingBalance: 25000,
     salaryDay: 1,
@@ -68,6 +69,7 @@ const run = async () => {
     passwordHash: await hashPassword("Admin@1234"),
     role: "admin",
     darkModePref: true,
+    emailVerified: true,
   });
 
   const user = demo._id;

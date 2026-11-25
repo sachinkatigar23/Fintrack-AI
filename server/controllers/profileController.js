@@ -9,11 +9,15 @@ const safe = (user) => {
   return u;
 };
 
-// PUT /profile  { name, currency, openingBalance, salaryDay, safetyBuffer }
+// PUT /profile  { name, currency, openingBalance, salaryDay, safetyBuffer, loginAlerts, emailAlerts }
 export const updateProfile = async (req, res) => {
   const updates = {};
   if (typeof req.body.name === "string") updates.name = req.body.name.trim();
   if (typeof req.body.currency === "string") updates.currency = req.body.currency.trim().toUpperCase().slice(0, 3);
+  // Notification preferences (security emails are always sent)
+  for (const key of ["loginAlerts", "emailAlerts"]) {
+    if (typeof req.body[key] === "boolean") updates[key] = req.body[key];
+  }
   // Money settings (validated by the route)
   for (const key of ["openingBalance", "salaryDay", "safetyBuffer"]) {
     const value = req.body[key];
