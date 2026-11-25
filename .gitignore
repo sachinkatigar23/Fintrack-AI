@@ -4,3 +4,4 @@ dist/
 coverage/
 uploads/
 logs/
+.vscode/
