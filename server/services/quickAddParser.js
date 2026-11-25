@@ -1,25 +1,40 @@
 // ─────────────────────────────────────────────────────────────
-// Quick add: turn short English / Hinglish text (typed or spoken) into
+// Quick add: turn short English / Hinglish / Hindi text (typed or spoken) into
 // income / expense drafts. PURE function - nothing is saved here.
 //   "250 petrol kal upi"            -> expense ₹250, Transport, yesterday, UPI
 //   "300 ka khana aur 120 auto"     -> two expenses
 //   "salary 35000 mila"             -> income ₹35,000, Salary
+//   "कल दो सौ चाय"                  -> expense ₹200, Food & Dining, yesterday
+// Every item has date (YYYY-MM-DD), dateText and dateSource ("spoken" | "default").
+// The date is never in the future.
 // ─────────────────────────────────────────────────────────────
+import { EXPENSE_KEYWORDS, INCOME_KEYWORDS } from "../utils/keywords.js";
+
+// Devanagari words can be written with a combined or a separate nukta (ज़ / ज़): compare in one form
+const norm = (s) => String(s).normalize("NFC");
+const normKeys = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [norm(k), v]));
+const normSet = (list) => new Set(list.map(norm));
 
 // ───────── Word lists ─────────
-const ONES = {
+const ONES = normKeys({
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   twenty: 20, fifty: 50,
   ek: 1, do: 2, teen: 3, char: 4, chaar: 4, paanch: 5, panch: 5, chhe: 6, saat: 7, aath: 8, nau: 9, das: 10,
   bees: 20, pachaas: 50,
   dedh: 1.5, dhai: 2.5,
-};
-const HUNDRED = new Set(["hundred", "sau"]);
-const THOUSAND = new Set(["thousand", "hazaar", "hazar", "k"]);
-const LAKH = new Set(["lakh", "lac"]);
+  // Hindi (Devanagari)
+  "एक": 1, "दो": 2, "तीन": 3, "चार": 4, "पाँच": 5, "पांच": 5, "छह": 6, "छः": 6, "सात": 7, "आठ": 8, "नौ": 9, "दस": 10,
+  "बीस": 20, "पचास": 50, "डेढ़": 1.5, "ढाई": 2.5,
+});
+const HUNDRED = normSet(["hundred", "sau", "सौ"]);
+const THOUSAND = normSet(["thousand", "hazaar", "hazar", "k", "हज़ार", "हजार"]);
+const LAKH = normSet(["lakh", "lac", "लाख"]);
 const isNumberWord = (w) => w in ONES || HUNDRED.has(w) || THOUSAND.has(w) || LAKH.has(w);
 
-const INCOME_CUES = new Set(["received", "got", "credited", "salary", "mila", "mile", "aaya", "income", "refund", "cashback", "earned"]);
+const INCOME_CUES = normSet([
+  "received", "got", "credited", "salary", "mila", "mili", "mile", "aaya", "income", "refund", "cashback", "earned",
+  "मिला", "मिली", "मिले", "आया", "सैलरी",
+]);
 
 const PAYMENT_PHRASES = [
   ["google pay", "upi"],
@@ -32,39 +47,49 @@ const PAYMENT_WORDS = {
   neft: "bankTransfer", imps: "bankTransfer", bank: "bankTransfer", transfer: "bankTransfer",
 };
 
-const EXPENSE_KEYWORDS = {
-  "Food & Dining": ["chai", "tea", "coffee", "nashta", "khana", "lunch", "dinner", "breakfast", "swiggy", "zomato", "biryani", "pizza", "groceries", "grocery", "sabzi", "doodh", "milk", "kirana", "dmart", "bigbasket", "blinkit", "zepto"],
-  Transport: ["petrol", "diesel", "fuel", "uber", "ola", "rapido", "auto", "rickshaw", "bus", "metro", "cab", "toll", "parking"],
-  "Bills & Utilities": ["recharge", "bijli", "electricity", "light bill", "wifi", "broadband", "mobile bill", "gas cylinder", "water bill", "dth"],
-  Shopping: ["amazon", "flipkart", "myntra", "meesho", "kapde", "clothes", "shoes", "shirt"],
-  Entertainment: ["movie", "film", "netflix", "hotstar", "spotify", "pvr", "game"],
-  Health: ["dawai", "medicine", "doctor", "hospital", "pharmacy", "gym"],
-  Education: ["fees", "book", "kitab", "course", "udemy", "coaching", "exam"],
-  Travel: ["train", "flight", "hotel", "irctc", "trip"],
-  "Rent & Housing": ["rent", "kiraya", "pg", "hostel"],
-};
-const INCOME_KEYWORDS = {
-  Rental: ["rent received", "kiraya mila"],
-  Salary: ["salary"],
-  Freelance: ["freelance", "project", "client"],
-  Gift: ["gift", "shagun"],
-  Investment: ["interest", "dividend"],
-  Business: ["business", "dukan", "sale"],
-};
+// keyword lists in the same Unicode form as the text
+const normDict = (dict) => Object.fromEntries(Object.entries(dict).map(([name, words]) => [name, words.map(norm)]));
+const EXPENSE_DICT = normDict(EXPENSE_KEYWORDS);
+const INCOME_DICT = normDict(INCOME_KEYWORDS);
 
-const FILLERS = new Set(["paid", "spent", "for", "on", "ka", "ki", "ke", "ko", "liya", "diya", "kharcha", "by", "via", "using", "se", "me", "mein",
+const FILLERS = normSet([
+  "paid", "spent", "for", "on", "ka", "ki", "ke", "ko", "liya", "diya", "kharcha", "by", "via", "using", "se", "me", "mein",
   // the same fillers written in Devanagari
-  "का", "की", "के", "को", "से", "में", "मे", "लिए", "दिया", "लिया"]);
+  "का", "की", "के", "को", "से", "में", "मे", "लिए", "दिया", "लिया",
+]);
 
 const MONTHS = {
   jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3, may: 4, jun: 5, june: 5,
   jul: 6, july: 6, aug: 7, august: 7, sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10,
   dec: 11, december: 11,
 };
-const WEEKDAYS = {
+const WEEKDAYS = normKeys({
   sunday: 0, sun: 0, monday: 1, mon: 1, tuesday: 2, tue: 2, tues: 2, wednesday: 3, wed: 3,
   thursday: 4, thu: 4, thur: 4, thurs: 4, friday: 5, fri: 5, saturday: 6, sat: 6,
-};
+  // Hinglish
+  somvar: 1, somvaar: 1, somwar: 1, mangalvar: 2, mangalwar: 2, budhvar: 3, budhwar: 3,
+  guruvar: 4, guruwar: 4, brihaspativar: 4, shukravar: 5, shukrawar: 5, shanivar: 6, shaniwar: 6,
+  ravivar: 0, raviwar: 0, itvaar: 0, itwar: 0, itvar: 0,
+  // Hindi
+  "सोमवार": 1, "मंगलवार": 2, "बुधवार": 3, "गुरुवार": 4, "बृहस्पतिवार": 4, "शुक्रवार": 5, "शनिवार": 6, "रविवार": 0, "इतवार": 0,
+});
+
+const TODAY_WORDS = normSet(["today", "aaj", "आज"]);
+const YESTERDAY_WORDS = normSet(["yesterday", "kal", "कल"]);
+const DBY_WORDS = normSet(["parso", "parson", "parsoon", "परसों", "परसो"]);
+const LAST_WORDS = normSet(["last", "pichle", "pichhle", "pichla", "pichhla", "पिछले", "पिछला"]);
+const WEEK_WORDS = normSet(["week", "hafte", "hafta", "हफ्ते", "हफ़्ते", "हफ्ता"]);
+const DAY_WORDS = normSet(["days", "day", "din", "दिन"]);
+const AGO_WORDS = normSet(["ago", "pehle", "pahle", "pehele", "पहले"]);
+const DATE_WORDS = normSet(["tarikh", "tareekh", "tarik", "तारीख", "तारीख़"]);
+// Words that make a date clearly future ("tomorrow", "agle hafte", "kal dena hai")
+const FUTURE_WORDS = normSet(["tomorrow", "agle", "agla", "agli", "next", "अगले", "अगला", "अगली"]);
+const FUTURE_VERBS = normSet([
+  "dena", "dunga", "dungi", "karunga", "karungi", "karna", "hoga", "hogi", "jayega", "aayega", "bharna",
+  "देना", "दूंगा", "दूँगा", "करूंगा", "करना", "होगा", "भरना",
+]);
+
+export const FUTURE_WARNING = "Future dates can't be added – use Bills for upcoming payments.";
 
 // ───────── Helpers ─────────
 const DEVANAGARI_DIGITS = "०१२३४५६७८९";
@@ -78,16 +103,30 @@ const validDay = (y, m, d) => {
   const x = new Date(y, m, d);
   return x.getFullYear() === y && x.getMonth() === m && x.getDate() === d ? x : null;
 };
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SHORT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// What was understood, e.g. "yesterday (24 Nov)", "3 days ago (Sun, 22 Nov)", "12 Oct 2025"
+export const describeDate = (date, today = new Date()) => {
+  const t0 = startOfDay(today);
+  const d = startOfDay(date);
+  const diff = Math.round((t0 - d) / 86400000);
+  const dm = `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
+  if (diff === 0) return `today (${dm})`;
+  if (diff === 1) return `yesterday (${dm})`;
+  if (diff > 1 && diff < 7) return `${diff} days ago (${SHORT_DAYS[d.getDay()]}, ${dm})`;
+  return d.getFullYear() === t0.getFullYear() ? dm : `${dm} ${d.getFullYear()}`;
+};
 
 // Split on " and ", " aur ", " और ", "," and ";" (commas inside numbers like 1,500 are kept)
 export const splitSegments = (text) =>
-  toAsciiDigits(String(text || ""))
+  toAsciiDigits(norm(text || ""))
     .replace(/(\d),(?=\d)/g, "$1")
     .split(/\s+(?:and|aur|और)\s+|[,;]/i)
     .map((s) => s.trim())
     .filter(Boolean);
 
-const TOKEN_RE = /\d+(?:\.\d+)?k\b|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d+(?:\.\d+)?(?:st|nd|rd|th)?|[\p{L}\p{M}]+/gu;
+const TOKEN_RE = /\d+(?:\.\d+)?k\b|\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?|\d+(?:\.\d+)?(?:st|nd|rd|th)?|[\p{L}\p{M}]+/gu;
 
 // Find a phrase (one or more words) in the token list; returns the index of its first token or -1
 const findPhrase = (tokens, used, phrase) => {
@@ -98,73 +137,140 @@ const findPhrase = (tokens, used, phrase) => {
   return -1;
 };
 
+// A small count: digits or one number word ("do", "दो", "three")
+const countOf = (w) => {
+  if (/^\d{1,3}$/.test(w || "")) return Number(w);
+  return w in ONES && Number.isInteger(ONES[w]) ? ONES[w] : null;
+};
+
+const dayNum = (s) => {
+  const x = String(s || "").match(/^(\d{1,2})(?:st|nd|rd|th)?$/);
+  return x && Number(x[1]) >= 1 && Number(x[1]) <= 31 ? Number(x[1]) : null;
+};
+
+// Day of this month; last month's when this month's is still ahead (or doesn't exist)
+const dayOfMonth = (t0, day) => {
+  const d = validDay(t0.getFullYear(), t0.getMonth(), day);
+  if (d && d <= t0) return d;
+  const prev = shift(new Date(t0.getFullYear(), t0.getMonth(), 1), -1);
+  return validDay(prev.getFullYear(), prev.getMonth(), day) || t0;
+};
+
+// Day and month without a year: this year, or last year when it is still ahead
+const dayMonth = (t0, month, day) => {
+  const d = validDay(t0.getFullYear(), month, day);
+  if (!d) return null;
+  return d <= t0 ? d : validDay(t0.getFullYear() - 1, month, day);
+};
+
 // ───────── Parts of one segment ─────────
+// Returns { date, future } or null. Marks the date words as used (so they leave the title).
 const parseDate = (tokens, used, today) => {
   const t0 = startOfDay(today);
   const mark = (...idx) => idx.forEach((i) => (used[i] = true));
+  const futureVerb = tokens.some((w) => FUTURE_VERBS.has(w));
 
+  // "day before yesterday"
   const dby = findPhrase(tokens, used, "day before yesterday");
   if (dby >= 0) {
     mark(dby, dby + 1, dby + 2);
-    return shift(t0, -2);
+    return { date: shift(t0, -2) };
   }
 
   for (let i = 0; i < tokens.length; i++) {
     if (used[i]) continue;
     const w = tokens[i];
-    if (w === "aaj" || w === "today") {
+    const next = tokens[i + 1];
+
+    // Clearly future: tomorrow, agle hafte, next monday
+    if (FUTURE_WORDS.has(w)) {
       mark(i);
-      return t0;
+      if (next && (WEEK_WORDS.has(next) || next in WEEKDAYS || next in MONTHS)) mark(i + 1);
+      return { date: t0, future: true };
     }
-    // In money records "kal" always means yesterday - never a future date
-    if (w === "kal" || w === "yesterday") {
+    if (TODAY_WORDS.has(w)) {
       mark(i);
-      return shift(t0, -1);
+      return { date: t0 };
     }
-    if (w === "parso") {
+    // "kal" means yesterday for something already paid - unless the sentence is clearly about the future
+    if (YESTERDAY_WORDS.has(w)) {
       mark(i);
-      return shift(t0, -2);
+      if (futureVerb && w !== "yesterday") return { date: t0, future: true };
+      return { date: shift(t0, -1) };
     }
+    if (DBY_WORDS.has(w)) {
+      mark(i);
+      return { date: shift(t0, -2) };
+    }
+    // "N days ago", "N din pehle", "N दिन पहले"
+    const n = countOf(w);
+    if (n !== null && DAY_WORDS.has(next || "") && AGO_WORDS.has(tokens[i + 2] || "")) {
+      mark(i, i + 1, i + 2);
+      return { date: shift(t0, -n) };
+    }
+    // "last week", "pichle hafte"
+    if (LAST_WORDS.has(w) && WEEK_WORDS.has(next || "")) {
+      mark(i, i + 1);
+      return { date: shift(t0, -7) };
+    }
+    // "last monday" = the Monday of the previous week (weeks start on Monday)
+    if (LAST_WORDS.has(w) && next in WEEKDAYS) {
+      mark(i, i + 1);
+      const monday = shift(t0, -((t0.getDay() + 6) % 7));
+      return { date: shift(monday, ((WEEKDAYS[next] + 6) % 7) - 7) };
+    }
+    // "monday" = the most recent one (today if it is that day)
     if (w in WEEKDAYS) {
-      const isLast = i > 0 && tokens[i - 1] === "last" && !used[i - 1];
-      let back = (t0.getDay() - WEEKDAYS[w] + 7) % 7;
-      if (back === 0 && isLast) back = 7;
       mark(i);
-      if (isLast) mark(i - 1);
-      return shift(t0, -back);
+      return { date: shift(t0, -((t0.getDay() - WEEKDAYS[w] + 7) % 7)) };
     }
-    // 12/11 or 12/11/2026 (day/month, Indian style)
-    let m = w.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+    // 12/11, 12-11, 12/11/2026 (day/month, Indian style)
+    let m = w.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/);
     if (m) {
-      mark(i);
-      const year = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : t0.getFullYear();
-      let d = validDay(year, Number(m[2]) - 1, Number(m[1]));
-      if (d && !m[3] && d > t0) d = validDay(year - 1, Number(m[2]) - 1, Number(m[1]));
-      if (d) return d;
+      const day = Number(m[1]);
+      const month = Number(m[2]) - 1;
+      if (m[3]) {
+        const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+        const d = validDay(year, month, day);
+        if (d) {
+          mark(i);
+          return d > t0 ? { date: t0, future: true } : { date: d };
+        }
+      } else {
+        const d = dayMonth(t0, month, day);
+        if (d) {
+          mark(i);
+          return { date: d };
+        }
+      }
       continue;
     }
-    // "12 nov" / "12th nov" / "nov 12"
-    const dayNum = (s) => {
-      const x = String(s || "").match(/^(\d{1,2})(?:st|nd|rd|th)?$/);
-      return x && Number(x[1]) >= 1 && Number(x[1]) <= 31 ? Number(x[1]) : null;
-    };
-    if (dayNum(w) && tokens[i + 1] in MONTHS && !used[i + 1]) {
-      const d = validDay(t0.getFullYear(), MONTHS[tokens[i + 1]], dayNum(w));
-      mark(i, i + 1);
-      if (d) return d > t0 ? validDay(t0.getFullYear() - 1, d.getMonth(), d.getDate()) || t0 : d;
+    // "12 nov", "12th november", "nov 12"
+    if (dayNum(w) && next in MONTHS && !used[i + 1]) {
+      const d = dayMonth(t0, MONTHS[next], dayNum(w));
+      if (d) {
+        mark(i, i + 1);
+        return { date: d };
+      }
     }
-    if (w in MONTHS && dayNum(tokens[i + 1]) && !used[i + 1]) {
-      const d = validDay(t0.getFullYear(), MONTHS[w], dayNum(tokens[i + 1]));
-      mark(i, i + 1);
-      if (d) return d > t0 ? validDay(t0.getFullYear() - 1, d.getMonth(), d.getDate()) || t0 : d;
+    if (w in MONTHS && dayNum(next) && !used[i + 1]) {
+      const d = dayMonth(t0, MONTHS[w], dayNum(next));
+      if (d) {
+        mark(i, i + 1);
+        return { date: d };
+      }
     }
-    // "12th" alone: that day of this month (last month if it is still ahead)
+    // "5 tarikh", "५ तारीख"
+    if (dayNum(w) && DATE_WORDS.has(next || "")) {
+      mark(i, i + 1);
+      return { date: dayOfMonth(t0, dayNum(w)) };
+    }
+    // "5th" / "on 5th"
     m = w.match(/^(\d{1,2})(st|nd|rd|th)$/);
-    if (m) {
+    if (m && dayNum(w)) {
       mark(i);
-      let d = validDay(t0.getFullYear(), t0.getMonth(), Number(m[1]));
-      if (d && d > t0) d = validDay(t0.getFullYear(), t0.getMonth() - 1, Number(m[1])) || validDay(shift(t0, -31).getFullYear(), shift(t0, -31).getMonth(), Number(m[1]));
-      if (d) return d;
+      if (i > 0 && tokens[i - 1] === "on") mark(i - 1);
+      return { date: dayOfMonth(t0, dayNum(w)) };
     }
   }
   return null;
@@ -187,7 +293,7 @@ const parsePayment = (tokens, used) => {
   return null;
 };
 
-// Value of a run of number words / numbers: "dedh hazaar" = 1500, "2 lakh" = 200000
+// Value of a run of number words / numbers: "dedh hazaar" = 1500, "2 lakh" = 200000, "दो सौ" = 200
 const valueOf = (run) => {
   let total = 0;
   let current = 0;
@@ -250,22 +356,23 @@ const findKeyword = (tokens, used, map) => {
 
 // ───────── Main ─────────
 export const parseSegment = (segment, today = new Date()) => {
-  const text = toAsciiDigits(segment)
+  const text = toAsciiDigits(norm(segment))
     .toLowerCase()
     .replace(/₹/g, " ")
     .replace(/\b(?:rs\.?|rupees|rupaye|rupaya|inr)(?=\s|\d|$)/g, " ");
   const tokens = text.match(TOKEN_RE) || [];
   const used = tokens.map(() => false);
 
-  const parsedDate = parseDate(tokens, used, today);
+  const parsed = parseDate(tokens, used, today);
   const paymentMethod = parsePayment(tokens, used);
   const amount = parseAmount(tokens, used);
 
-  const isIncome = tokens.some((w, i) => INCOME_CUES.has(w) && !used[i]) || findPhrase(tokens, used, "rent received") >= 0;
+  const rentReceived = findPhrase(tokens, used, "rent received") >= 0;
+  const isIncome = tokens.some((w, i) => INCOME_CUES.has(w) && !used[i]) || rentReceived;
   const type = isIncome ? "income" : "expense";
-  const match = findKeyword(tokens, used, isIncome ? INCOME_KEYWORDS : EXPENSE_KEYWORDS);
-  // cue words are not part of the title
-  tokens.forEach((w, i) => INCOME_CUES.has(w) && (used[i] = true));
+  const match = findKeyword(tokens, used, isIncome ? INCOME_DICT : EXPENSE_DICT);
+  // cue words and leftover future verbs are not part of the title
+  tokens.forEach((w, i) => (INCOME_CUES.has(w) || FUTURE_VERBS.has(w)) && (used[i] = true));
 
   let title = match ? titleCase(match.keyword) : "";
   if (!title) {
@@ -277,7 +384,8 @@ export const parseSegment = (segment, today = new Date()) => {
 
   // Never a future date
   const t0 = startOfDay(today);
-  const date = parsedDate && parsedDate <= t0 ? parsedDate : t0;
+  const spoken = Boolean(parsed);
+  const date = parsed && parsed.date <= t0 ? parsed.date : t0;
 
   const missing = [];
   if (!amount) missing.push("amount");
@@ -290,10 +398,13 @@ export const parseSegment = (segment, today = new Date()) => {
     amount: amount || null,
     paymentMethod: paymentMethod || (isIncome ? "bankTransfer" : "upi"),
     date: iso(date),
+    dateText: describeDate(date, today),
+    dateSource: spoken && !parsed.future ? "spoken" : "default",
     confidence: amount && match ? "high" : amount ? "medium" : "low",
     missing,
     text: segment.trim(),
   };
+  if (parsed?.future) item.warning = FUTURE_WARNING;
   if (isIncome) item.source = match ? match.name : null;
   else item.category = match ? match.name : null;
   return item;
@@ -377,10 +488,13 @@ export const mergeAIItems = (ruleItems, aiItems, { today = new Date(), categorie
         filled += 1;
       }
     }
-    // Date: only when the rules fell back to today and the AI read an earlier one
+    // Date: only when the rules found no date in the text, and never a future one
     const aiDate = cleanDate(ai.date);
-    if (aiDate && out.date === t0 && aiDate !== t0) {
+    if (aiDate && out.dateSource !== "spoken" && !out.warning && aiDate !== out.date) {
+      const [y, m, d] = aiDate.split("-").map(Number);
       out.date = aiDate;
+      out.dateText = describeDate(new Date(y, m - 1, d), today);
+      out.dateSource = "spoken";
       filled += 1;
     }
     const aiPay = pickName(ai.paymentMethod, paymentMethods);

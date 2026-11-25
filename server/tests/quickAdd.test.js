@@ -69,11 +69,11 @@ test('"300 ka khana aur 120 auto" gives two items', () => {
 });
 
 test("Devanagari digits", () => {
-  const i = one("५०० का दूध");
+  const i = one("५०० का सामान");
   assert.equal(i.amount, 500);
   assert.equal(i.confidence, "medium");
   assert.ok(i.missing.includes("category"));
-  assert.ok(hasDevanagariLetters("५०० का दूध"));
+  assert.ok(hasDevanagariLetters("५०० का सामान"));
   assert.ok(!hasDevanagariLetters("५००"));
 });
 
@@ -134,7 +134,7 @@ test("title from leftover words, and fallbacks", () => {
 });
 
 test("AI fills only the fields the rules missed, never a future date", () => {
-  const { items } = parseQuickAdd("५०० का दूध", TODAY);
+  const { items } = parseQuickAdd("५०० का सामान", TODAY);
   const merged = mergeAIItems(
     items,
     [{ type: "expense", title: "Milk", amount: 9999, category: "food & dining", date: "2026-12-01" }],

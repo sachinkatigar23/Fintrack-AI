@@ -60,3 +60,14 @@ export const greeting = () => {
 };
 
 export const pct = (n, digits = 1) => `${(Number(n) || 0).toFixed(digits)}%`;
+
+// "Today, 25 Nov" / "Yesterday, 24 Nov" / "Mon, 23 Nov" (+ year when not this year) from YYYY-MM-DD or a Date
+export const friendlyDate = (value) => {
+  if (!value) return "";
+  const d = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+  const diff = -daysUntil(d);
+  const dm = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", ...(d.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}) });
+  if (diff === 0) return `Today, ${dm}`;
+  if (diff === 1) return `Yesterday, ${dm}`;
+  return `${d.toLocaleDateString("en-IN", { weekday: "short" })}, ${dm}`;
+};

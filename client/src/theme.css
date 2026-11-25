@@ -744,3 +744,15 @@ tbody tr:hover{background:rgba(124,107,255,.055);box-shadow:inset 3px 0 0 var(--
   html.light .qa-lang button.on,html.light .qa-mic{color:#5B47E0}
   html.light .qa-mic.listening{color:#fff}
 }
+
+/* ═══════════════════════════════════════════════
+   UPGRADE V3 - quick add feedback, streak card, verify email
+   ═══════════════════════════════════════════════ */
+@layer components {
+  /* Fields filled by quick add glow for ~1.2 s */
+  .input.qa-glow,.select.qa-glow{animation:qaglow 1.2s ease-out;border-color:rgba(124,107,255,.7)}
+  @keyframes qaglow{0%{box-shadow:0 0 0 0 rgba(124,107,255,.6);background-color:rgba(124,107,255,.16)}100%{box-shadow:0 0 0 8px rgba(124,107,255,0)}}
+  /* "Understood" chip under the quick-add box */
+  .qa-understood{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-4px 0 var(--s3);font-size:12.5px}
+  .qa-understood-text{color:var(--text);font-weight:500}
+}

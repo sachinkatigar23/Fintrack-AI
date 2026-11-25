@@ -7,8 +7,8 @@ import { Paperclip, Check } from "../common/icons.js";
 import Modal from "../common/Modal.jsx";
 import QuickAddBar from "./QuickAddBar.jsx";
 import { expenseApi, incomeApi } from "../../services/financeApi.js";
-import { EXPENSE_CATEGORIES, INCOME_SOURCES, PAYMENT_METHODS } from "../../utils/categories.js";
-import { toInputDate } from "../../utils/format.js";
+import { EXPENSE_CATEGORIES, INCOME_SOURCES, PAYMENT_METHODS, paymentLabel } from "../../utils/categories.js";
+import { toInputDate, friendlyDate } from "../../utils/format.js";
 import { errorMessage, fileUrl } from "../../api/axios.js";
 
 // Client-side validation (the server validates again)
@@ -49,13 +49,20 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
   const editing = Boolean(record?._id);
   // Quick add: items still waiting after the first one ("+N more"), and an item waiting for a type switch
   const [queue, setQueue] = useState([]);
+  // work to run once a type switch has rendered the new category list
   const pendingRef = useRef(null);
+  // Quick add: what was understood (+ the form values before, for Undo) and which fields just changed
+  const [understood, setUnderstood] = useState(null);
+  const [glow, setGlow] = useState([]);
+  const glowTimer = useRef(null);
 
   const {
     register,
     handleSubmit,
     reset,
     setValue,
+    getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(schema), defaultValues: blank(initialType) });
 
@@ -65,6 +72,8 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
     const t = record?.type || initialType;
     setType(t);
     setQueue([]);
+    setUnderstood(null);
+    setGlow([]);
     pendingRef.current = null;
     setReceiptUrl(record?.receiptUrl || "");
     reset(
@@ -96,45 +105,66 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
   };
 
   // ───────── Quick add ─────────
+  const flash = (names) => {
+    clearTimeout(glowTimer.current);
+    setGlow(names);
+    glowTimer.current = setTimeout(() => setGlow([]), 1200);
+  };
+  useEffect(() => () => clearTimeout(glowTimer.current), []);
+  const glowClass = (name) => (glow.includes(name) ? " qa-glow" : "");
+
   const fillFields = (item) => {
     const opts = { shouldValidate: true, shouldDirty: true };
     const filled = [];
+    const changed = [];
     const income = item.type === "income";
     if (item.title) {
       setValue("title", String(item.title).slice(0, 100), opts);
+      changed.push("title");
       if (!item.missing?.includes("title")) filled.push("title");
     }
     if (Number(item.amount) > 0) {
       setValue("amount", String(item.amount), opts);
-      filled.push(`amount ${item.amount}`);
+      changed.push("amount");
+      filled.push("amount");
     }
     const cls = income ? item.source : item.category;
     if (cls && (income ? INCOME_SOURCES : EXPENSE_CATEGORIES).includes(cls)) {
       setValue("classification", cls, opts);
-      filled.push(cls);
+      changed.push("classification");
+      filled.push(income ? "source" : "category");
     }
-    if (PAYMENT_METHODS.some(([v]) => v === item.paymentMethod)) setValue("paymentMethod", item.paymentMethod, opts);
-    // A future date is ignored: today stays
-    if (/^\d{4}-\d{2}-\d{2}$/.test(String(item.date || "")) && item.date <= toInputDate()) {
-      setValue("date", item.date, opts);
-      if (item.date !== toInputDate()) filled.push(item.date);
+    if (PAYMENT_METHODS.some(([v]) => v === item.paymentMethod)) {
+      setValue("paymentMethod", item.paymentMethod, opts);
+      changed.push("paymentMethod");
     }
+    // The date field always follows what was said (a future date is never applied: today stays)
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || "")) && item.date <= toInputDate() ? item.date : toInputDate();
+    setValue("date", date, opts);
+    changed.push("date");
+    if (item.dateSource === "spoken") filled.push(`date (${friendlyDate(date)})`);
+
+    flash(changed);
     toast.success(`Filled: ${filled.join(", ") || "what we could"}${item.missing?.length ? " – please check the rest" : ""}`);
+    if (item.warning) toast(item.warning, { icon: "⚠️", duration: 6000 });
   };
 
-  // After a type switch the category list changes; fill once the new options are rendered
+  // After a type switch the category list changes; run the waiting work once the new options are rendered
   useEffect(() => {
     if (!open || !pendingRef.current) return;
-    const item = pendingRef.current;
+    const work = pendingRef.current;
     pendingRef.current = null;
-    fillFields(item);
+    work();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, open]);
 
   const applyItem = (item) => {
     const t = item.type === "income" ? "income" : "expense";
+    // remember the form as it was, for Undo
+    const before = { type, values: getValues() };
+    setUnderstood({ item: { ...item, date: item.date <= toInputDate() ? item.date : toInputDate() }, before });
     if (t !== type) {
-      pendingRef.current = item;
+      pendingRef.current = () => fillFields(item);
       setType(t);
       setValue("classification", t === "income" ? "Salary" : "Food & Dining");
       setValue("paymentMethod", t === "income" ? "bankTransfer" : "upi");
@@ -142,6 +172,33 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
     }
     fillFields(item);
   };
+
+  // Undo: restore the values the form had before quick add
+  const undoQuickAdd = () => {
+    if (!understood) return;
+    const { before } = understood;
+    setUnderstood(null);
+    setQueue([]);
+    const restore = () => {
+      reset(before.values, { keepDefaultValues: true });
+      flash(["title", "amount", "date", "classification", "paymentMethod"]);
+    };
+    if (before.type !== type) {
+      pendingRef.current = restore;
+      setType(before.type);
+    } else restore();
+    toast("Quick add undone", { icon: "↩️" });
+  };
+
+  const understoodText = (i) =>
+    [
+      i.amount ? `₹${Number(i.amount).toLocaleString("en-IN")}` : null,
+      i.type === "income" ? i.source : i.category,
+      friendlyDate(i.date),
+      paymentLabel(i.paymentMethod),
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
   const onQuickItems = (items) => {
     let list = items.filter((i) => i && (i.amount || i.title));
@@ -237,8 +294,9 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
         setReceiptUrl("");
         reset(blank(t));
         setQueue(rest);
+        setUnderstood({ item: next, before: { type: t, values: blank(t) } });
         if (t !== type) {
-          pendingRef.current = next;
+          pendingRef.current = () => fillFields(next);
           setType(t);
         } else {
           setTimeout(() => fillFields(next), 0);
@@ -272,6 +330,15 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
           <div style={lockType ? { marginTop: 22 } : undefined}>
             <QuickAddBar autoVoice={autoVoice} onItems={onQuickItems} />
           </div>
+          {understood && (
+            <div className="qa-understood">
+              <span className="tag iris">UNDERSTOOD</span>
+              <span className="qa-understood-text">{understoodText(understood.item)}</span>
+              <button type="button" className="link" style={{ fontSize: 12 }} onClick={undoQuickAdd}>
+                Undo
+              </button>
+            </div>
+          )}
           {queue.length > 0 && (
             <div className="qa-queue">
               <span className="tag iris">+{queue.length} MORE</span>
@@ -312,25 +379,32 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
         <div className="form-grid">
           <label className="field full">
             <span>Title</span>
-            <input className={`input${errors.title ? " err" : ""}`} placeholder={HINTS[hint]} {...register("title")} />
+            <input className={`input${errors.title ? " err" : ""}${glowClass("title")}`} placeholder={HINTS[hint]} {...register("title")} />
             {errors.title && <small className="ferr">{errors.title.message}</small>}
           </label>
 
           <label className="field">
             <span>Amount</span>
-            <input className={`input${errors.amount ? " err" : ""}`} type="number" step="0.01" min="0" placeholder="0.00" {...register("amount")} />
+            <input className={`input${errors.amount ? " err" : ""}${glowClass("amount")}`} type="number" step="0.01" min="0" placeholder="0.00" {...register("amount")} />
             {errors.amount && <small className="ferr">{errors.amount.message}</small>}
           </label>
 
           <label className="field">
             <span>Date</span>
-            <input className={`input${errors.date ? " err" : ""}`} type="date" max={toInputDate()} {...register("date")} />
+            {/* controlled: the visible date always shows the form value (quick add, receipt scan, undo) */}
+            <input
+              className={`input${errors.date ? " err" : ""}${glowClass("date")}`}
+              type="date"
+              max={toInputDate()}
+              {...register("date")}
+              value={watch("date") || ""}
+            />
             {errors.date && <small className="ferr">{errors.date.message}</small>}
           </label>
 
           <label className="field">
             <span>{type === "income" ? "Source" : "Category"}</span>
-            <select className="select" {...register("classification")}>
+            <select className={`select${glowClass("classification")}`} {...register("classification")}>
               {options.map((o) => (
                 <option key={o} value={o}>
                   {o}
@@ -341,7 +415,7 @@ export default function TransactionForm({ open, onClose, type: initialType = "ex
 
           <label className="field">
             <span>Payment method</span>
-            <select className="select" {...register("paymentMethod")}>
+            <select className={`select${glowClass("paymentMethod")}`} {...register("paymentMethod")}>
               {PAYMENT_METHODS.map(([v, l]) => (
                 <option key={v} value={v}>
                   {l}
