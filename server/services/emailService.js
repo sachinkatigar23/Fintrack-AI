@@ -1,12 +1,20 @@
 import nodemailer from "nodemailer";
 
-// Email is optional. If EMAIL_USER / EMAIL_PASS are not set, messages are
-// printed to the server console instead (handy during development - this is
-// also where a verification code can be read when email isn't configured).
+// Email is optional. Provider, in this order:
+//   1. BREVO_API_KEY set         -> Brevo's HTTPS email API (works on hosts that block SMTP, e.g. Render)
+//   2. EMAIL_USER / EMAIL_PASS   -> nodemailer SMTP (handy for local development)
+//   3. neither                   -> printed to the server console (this is also where a
+//                                   verification code can be read when email isn't configured)
+const BREVO_URL = "https://api.brevo.com/v3/smtp/email";
+const BREVO_TIMEOUT_MS = 10_000;
+
 let transporter = null;
 
+const useBrevo = () => Boolean(process.env.BREVO_API_KEY);
+const useSmtp = () => Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+
 const getTransporter = () => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
+  if (!useSmtp()) return null;
   if (!transporter) {
     transporter = nodemailer.createTransport({
       service: process.env.EMAIL_SERVICE || "gmail",
@@ -16,7 +24,45 @@ const getTransporter = () => {
   return transporter;
 };
 
-export const isEmailEnabled = () => Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+export const isEmailEnabled = () => useBrevo() || useSmtp();
+
+// Send through Brevo over HTTPS (Node 20+ built-in fetch). Never logs the key.
+const sendWithBrevo = async ({ to, subject, htmlContent }) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BREVO_TIMEOUT_MS);
+  try {
+    const res = await fetch(BREVO_URL, {
+      method: "POST",
+      headers: {
+        "api-key": process.env.BREVO_API_KEY,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: process.env.EMAIL_FROM_NAME || "FinTrack AI",
+          email: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        },
+        to: [{ email: to }],
+        subject,
+        htmlContent,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => "")).slice(0, 300);
+      console.error(`Email error (Brevo ${res.status}): ${detail}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    const reason = error.name === "AbortError" ? `timed out after ${BREVO_TIMEOUT_MS / 1000}s` : error.message;
+    console.error(`Email error (Brevo): ${reason}`);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 const escapeHtml = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -41,6 +87,9 @@ export const layout = (title, body) => `
   </div>`;
 
 export const sendEmail = async ({ to, subject, title, html }) => {
+  if (useBrevo()) {
+    return sendWithBrevo({ to, subject, htmlContent: layout(title || subject, html) });
+  }
   const t = getTransporter();
   if (!t) {
     console.log(`📧 [email disabled] To: ${to} | ${subject}\n${html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`);

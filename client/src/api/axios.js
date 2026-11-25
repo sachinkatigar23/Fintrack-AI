@@ -17,10 +17,12 @@ export const getAccessToken = () => {
   return accessToken;
 };
 
-// API address comes from client/.env (VITE_API_URL)
+// API address comes from client/.env (VITE_API_URL). In production builds
+// client/.env.production sets the relative "/api/v1" (same origin as the site).
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
 
-// Server origin, used to show uploaded files stored on the server (/uploads/...)
+// Server origin, used to show uploaded files stored on the server (/uploads/...).
+// With a relative API_URL ("/api/v1") this is "" so "/uploads/..." stays relative.
 export const SERVER_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
 
 export const fileUrl = (url) => {

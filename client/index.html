@@ -6,14 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="FinTrack AI - Manage Smarter. Spend Better." />
     <title>FinTrack AI</title>
-    <script>
-      // Apply the saved theme before React loads (prevents a white flash)
-      try {
-        var t = localStorage.getItem("fintrack-theme") || "dark";
-        document.documentElement.classList.toggle("light", t === "light");
-        document.documentElement.classList.toggle("dark", t !== "light");
-      } catch (e) {}
-    </script>
+    <!-- Apply the saved theme before React loads (prevents a white flash) -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -269,3 +269,89 @@ git push -u origin main
 ```
 
 `.env` files and `node_modules` are already excluded by `.gitignore`.
+
+## 8. Deployment
+
+FinTrack AI deploys for free as **one Render Web Service** (Express serves the
+built React app and the API from one URL), with **MongoDB Atlas** for the
+database, **Cloudinary** for photos and **Brevo** for email (Render's free plan
+blocks SMTP). The code is already prepared for this:
+
+- `npm run build` (repo root) installs both apps and builds the client; `npm start` (root) starts the server.
+- With `NODE_ENV=production` the server serves `client/dist`, trusts Render's proxy and sends a strict Content-Security-Policy.
+- Email uses Brevo when `BREVO_API_KEY` is set, otherwise SMTP (`EMAIL_USER`/`EMAIL_PASS`), otherwise the console.
+
+To try the production build locally: run `npm run build` at the root, then
+start it with `NODE_ENV=production` (and a free `PORT` if 5000 is busy) using
+`npm start`, and open `http://localhost:<PORT>`.
+
+Full background is in [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md). Your steps:
+
+### B1. MongoDB Atlas (database)
+1. Go to **cloud.mongodb.com** and sign up (Google login is fine). Click **Build a Database** → **Free** → choose provider **AWS**, region **Mumbai (ap-south-1)** → **Create**.
+2. **Database user:** pick a username and an **alphanumeric password** (no `@ : / ?` symbols, which break the link). Save both.
+3. **Network Access** → **Add IP Address** → **Allow access from anywhere** (`0.0.0.0/0`). Render's free plan has no fixed IP, so this is needed.
+4. Click **Connect** → **Drivers**, and copy the `mongodb+srv://...` link. Put your password in it, and add `fintrack` before the `?`:
+   `mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/fintrack?retryWrites=true&w=majority`
+5. **Move your data** (choose one):
+   - **Fresh start + demo data:** in `server`, run in **cmd**:
+     `set MONGO_URI=<your atlas link>&& npm run seed`
+     (no space before `&&`). Then register your own account on the live site.
+   - **Copy your real local data:** with MongoDB Database Tools installed:
+     `mongodump --uri="mongodb://127.0.0.1:27017/fintrack" --out=dump`
+     `mongorestore --uri="<your atlas link>" dump/fintrack --nsInclude="fintrack.*"`
+     Or in **Compass**: export each collection to JSON from local, then import it into Atlas.
+
+### B2. Cloudinary (photo storage)
+1. Sign up at **cloudinary.com** (free).
+2. On the **Dashboard**, copy **Cloud name**, **API Key** and **API Secret**.
+
+### B3. Brevo (emails)
+1. Sign up at **brevo.com** (free, no card). Complete the short profile if it asks.
+2. **Senders, Domains & Dedicated IPs** → **Senders** → **Add a sender**: name "FinTrack AI", your Gmail address. Verify it from the email Brevo sends you.
+3. **SMTP & API** → **API Keys** → **Generate a new API key**, and copy it.
+4. Tip: because the sender is a Gmail address, the first emails may land in **Spam**. Mark them "Not spam".
+
+### B4. Render (the app)
+1. Make sure Part A is merged into `main` and pushed (`git push`).
+2. Go to **render.com** and sign up **with GitHub**. Click **New** → **Web Service** → choose your `fintrack-ai` repo.
+3. Settings:
+   - **Branch:** `main`
+   - **Root Directory:** *(leave empty)*
+   - **Runtime:** Node
+   - **Build Command:** `npm run build`
+   - **Start Command:** `npm start`
+   - **Instance Type:** **Free**
+4. **Environment Variables**:
+
+   | Key | Value |
+   |---|---|
+   | `NODE_ENV` | `production` |
+   | `TZ` | `Asia/Kolkata` |
+   | `MONGO_URI` | your Atlas link |
+   | `JWT_SECRET` | a long random text (see below) |
+   | `JWT_REFRESH_SECRET` | another, different long random text |
+   | `CLIENT_URL` | `https://<your-service-name>.onrender.com` (update it after the first deploy if the name differs) |
+   | `GEMINI_API_KEY` | your key |
+   | `GEMINI_MODEL` | `gemini-3.5-flash-lite` (or what you use now) |
+   | `GEMINI_FALLBACK_MODEL` | `gemini-3.6-flash` |
+   | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | from B2 |
+   | `BREVO_API_KEY` | from B3 |
+   | `EMAIL_FROM` | the Gmail address you verified in Brevo |
+   | `EMAIL_FROM_NAME` | `FinTrack AI` |
+
+   To make random secrets, run this twice on your PC:
+   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+   Don't add `EMAIL_USER`, `EMAIL_PASS` or `DNS_SERVERS` on Render.
+5. Under **Advanced**, set **Health Check Path** to `/api/health`. Click **Create Web Service** and wait for **"Live"** (the first build takes a few minutes).
+6. Open `https://<name>.onrender.com`. Register with your email; the code should arrive by email (check Spam). Then test login, add an expense, a receipt scan, Safe to spend and the AI coach.
+
+### B5. Keep it awake (optional, recommended before your demo)
+1. Sign up at **cron-job.org** (free) → **Create cronjob**.
+2. URL: `https://<name>.onrender.com/api/health`, every **10 minutes**.
+3. One service kept awake all month uses about 720 of Render's 750 free hours, so keep only this one free service running. Without the pinger, the first visit after 15 idle minutes takes about a minute, and the reminder jobs only run while it's awake.
+
+### B6. After deploying
+- Every `git push` to `main` redeploys automatically.
+- Logs: Render dashboard → your service → **Logs**.
+- Your local `.env` is never uploaded. Render's **Environment** tab holds the live settings.
